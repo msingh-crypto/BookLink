@@ -8,8 +8,8 @@
       "build": "vite build",
       "preview": "vite preview",
       "test": "vitest run --passWithNoTests",
-      "lint": "eslint .",
-      "lint:fix": "eslint . --fix",
+      "lint": "eslint src --ext .js,.jsx",
+      "lint:fix": "eslint src --ext .js,.jsx --fix",
       "format": "prettier --write \"src/**/*.{js,jsx,css}\""
     },
     "dependencies": {
