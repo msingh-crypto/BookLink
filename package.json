@@ -1,0 +1,27 @@
+{
+  "name": "BookLink",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "prepare": "husky",
+    "lint:server": "npm run lint --prefix server",
+    "lint:client": "npm run lint --prefix client",
+    "test:server": "npm run test --prefix server",
+    "test:client": "npm run test --prefix client"
+  },
+  "devDependencies": {
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.2",
+    "prettier": "^3.9.9"
+  },
+  "lint-staged": {
+    "server/**/*.js": [
+      "npx --prefix server eslint --fix",
+      "npx --prefix server prettier --write"
+    ],
+    "client/**/*.{js,jsx,css}": [
+      "npx --prefix client eslint --fix",
+      "npx --prefix client prettier --write"
+    ]
+  }
+}
