@@ -19,8 +19,11 @@
       "npx --prefix server eslint --fix",
       "npx --prefix server prettier --write"
     ],
-    "client/**/*.{js,jsx,css}": [
+    "client/**/*.{js,jsx}": [
       "npx --prefix client eslint --fix",
+      "npx --prefix client prettier --write"
+    ],
+    "client/**/*.css": [
       "npx --prefix client prettier --write"
     ]
   }
