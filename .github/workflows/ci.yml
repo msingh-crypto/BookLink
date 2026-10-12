@@ -45,6 +45,16 @@ jobs:
         run: npm run lint --if-present
         working-directory: ./server
 
+      - name: Initialize Database Schema
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: test_user
+          DB_PASSWORD: test_password
+          DB_NAME: test_db
+        run: npm run db:init
+        working-directory: ./server
+
       - name: Run Backend Tests
         env:
           DB_HOST: localhost
