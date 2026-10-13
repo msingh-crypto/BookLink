@@ -44,7 +44,8 @@ BookLink is a web application that verifies student status (e.g., via Lakehead e
 
 - Morina Singh — [msingh60@lakeheadu.ca](mailto:msingh60@lakeheadu.ca)  
 - Ricardo Andrade — [raandrad@lakehead.ca](mailto:raandrad@lakehead.ca)  
-- Nicholas D’Uva — [naduva@lakeheadu.ca](mailto:naduva@lakeheadu.ca)  
+- Nicholas D’Uva — [naduva@lakeheadu.ca](mailto:naduva@lakeheadu.ca)
+- Jatin Sagar 
 
 ## Repository
 
