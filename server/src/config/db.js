@@ -16,4 +16,7 @@ const pool = connectionString
       database: process.env.DB_NAME || "postgres",
     });
 
-module.exports = pool;
+module.exports = {
+  query: (text, params) => pool.query(text, params),
+  pool,
+};
