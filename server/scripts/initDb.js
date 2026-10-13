@@ -15,9 +15,9 @@ async function initDb() {
     const schemaPath = path.resolve(__dirname, "../../schema.sql");
     const schemaSql = fs.readFileSync(schemaPath, "utf8");
 
-    console.log("Applying schema.sql to PostgreSQL...");
+    console.log("Applying schema.sql to PostgreSQL database...");
     await pool.query(schemaSql);
-    console.log("Database schema successfully initialized.");
+    console.log("Database schema applied successfully.");
   } catch (error) {
     console.error("Failed to initialize database schema:", error);
     process.exit(1);
