@@ -73,7 +73,7 @@ const CreateListingForm = ({ sellerId, onSuccess }) => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to create listing");
+        throw new Error(data.error || "Failed to create listing.");
       }
 
       if (photo && data.id) {
@@ -101,130 +101,178 @@ const CreateListingForm = ({ sellerId, onSuccess }) => {
     }
   };
 
+  const inputClasses =
+    "w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm text-slate-800";
+  const labelClasses = "block text-sm font-medium text-slate-700 mb-1";
+
   return (
-    <form onSubmit={handleSubmit} className="create-listing-form">
-      <h2>Create Textbook Listing</h2>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <h2 className="text-xl font-bold text-slate-900 border-b pb-2 mb-4">
+        Create Textbook Listing
+      </h2>
 
       {errorMessage && (
-        <div className="error-banner" role="alert">
+        <div className="bg-red-50 border-l-4 border-red-500 p-3 text-red-700 text-sm rounded">
           {errorMessage}
         </div>
       )}
 
-      <div className="form-group">
-        <label htmlFor="title">Book Title *</label>
+      <div>
+        <label htmlFor="title" className={labelClasses}>
+          Book Title *
+        </label>
         <input
           id="title"
           name="title"
           type="text"
+          className={inputClasses}
           value={formData.title}
           onChange={handleChange}
+          placeholder="e.g. Software Engineering"
         />
       </div>
 
-      <div className="form-group">
-        <label htmlFor="isbn">ISBN</label>
-        <input
-          id="isbn"
-          name="isbn"
-          type="text"
-          value={formData.isbn}
-          onChange={handleChange}
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="isbn" className={labelClasses}>
+            ISBN
+          </label>
+          <input
+            id="isbn"
+            name="isbn"
+            type="text"
+            className={inputClasses}
+            value={formData.isbn}
+            onChange={handleChange}
+            placeholder="e.g. 9780134670942"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="course_code" className={labelClasses}>
+            Course Code *
+          </label>
+          <input
+            id="course_code"
+            name="course_code"
+            type="text"
+            className={inputClasses}
+            placeholder="e.g. COMP-1411"
+            value={formData.course_code}
+            onChange={handleChange}
+          />
+        </div>
       </div>
 
-      <div className="form-group">
-        <label htmlFor="course_code">Course Code *</label>
-        <input
-          id="course_code"
-          name="course_code"
-          type="text"
-          placeholder="e.g. COMP-1411"
-          value={formData.course_code}
-          onChange={handleChange}
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="edition" className={labelClasses}>
+            Edition
+          </label>
+          <input
+            id="edition"
+            name="edition"
+            type="text"
+            className={inputClasses}
+            value={formData.edition}
+            onChange={handleChange}
+            placeholder="e.g. 10th Edition"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="price" className={labelClasses}>
+            Price ($) *
+          </label>
+          <input
+            id="price"
+            name="price"
+            type="number"
+            step="0.01"
+            className={inputClasses}
+            value={formData.price}
+            onChange={handleChange}
+            placeholder="0.00"
+          />
+        </div>
       </div>
 
-      <div className="form-group">
-        <label htmlFor="edition">Edition</label>
-        <input
-          id="edition"
-          name="edition"
-          type="text"
-          value={formData.edition}
-          onChange={handleChange}
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="condition" className={labelClasses}>
+            Condition *
+          </label>
+          <select
+            id="condition"
+            name="condition"
+            className={inputClasses}
+            value={formData.condition}
+            onChange={handleChange}
+          >
+            <option value="">Select Condition</option>
+            {BOOK_CONDITIONS.map((cond) => (
+              <option key={cond} value={cond}>
+                {cond}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label htmlFor="meetup_zone" className={labelClasses}>
+            Campus Meetup Zone *
+          </label>
+          <select
+            id="meetup_zone"
+            name="meetup_zone"
+            className={inputClasses}
+            value={formData.meetup_zone}
+            onChange={handleChange}
+          >
+            <option value="">Select Meetup Location</option>
+            {CAMPUS_MEETUP_ZONES.map((zone) => (
+              <option key={zone} value={zone}>
+                {zone}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      <div className="form-group">
-        <label htmlFor="price">Price ($) *</label>
-        <input
-          id="price"
-          name="price"
-          type="number"
-          step="0.01"
-          value={formData.price}
-          onChange={handleChange}
-        />
-      </div>
-
-      <div className="form-group">
-        <label htmlFor="condition">Condition *</label>
-        <select
-          id="condition"
-          name="condition"
-          value={formData.condition}
-          onChange={handleChange}
-        >
-          <option value="">Select Condition</option>
-          {BOOK_CONDITIONS.map((cond) => (
-            <option key={cond} value={cond}>
-              {cond}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="form-group">
-        <label htmlFor="meetup_zone">Campus Meetup Zone *</label>
-        <select
-          id="meetup_zone"
-          name="meetup_zone"
-          value={formData.meetup_zone}
-          onChange={handleChange}
-        >
-          <option value="">Select Meetup Location</option>
-          {CAMPUS_MEETUP_ZONES.map((zone) => (
-            <option key={zone} value={zone}>
-              {zone}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="form-group">
-        <label htmlFor="description">Description *</label>
+      <div>
+        <label htmlFor="description" className={labelClasses}>
+          Description *
+        </label>
         <textarea
           id="description"
           name="description"
-          rows="4"
+          rows="3"
+          className={inputClasses}
           value={formData.description}
           onChange={handleChange}
+          placeholder="Include details about highlights, notes, or physical condition..."
         />
       </div>
 
-      <div className="form-group">
-        <label htmlFor="photo">Upload Photo</label>
+      <div>
+        <label htmlFor="photo" className={labelClasses}>
+          Upload Photo
+        </label>
         <input
           id="photo"
           name="photo"
           type="file"
           accept="image/*"
+          className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
           onChange={handleFileChange}
         />
       </div>
 
-      <button type="submit" disabled={isSubmitting}>
+      <button
+        type="submit"
+        disabled={isSubmitting}
+        className="w-full mt-4 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md shadow focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+      >
         {isSubmitting ? "Creating..." : "Create Listing"}
       </button>
     </form>
