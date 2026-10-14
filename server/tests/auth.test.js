@@ -9,7 +9,9 @@ describe("POST /api/auth/register (US-01: Student Registration)", () => {
   afterAll(async () => {
     // Clean up created test user from database
     await pool.query("DELETE FROM users WHERE email = $1", [testUserEmail]);
-    await pool.end();
+    if (app.close) {
+      await app.close();
+    }
   });
 
   it("should successfully register an account with a valid Lakehead email", async () => {

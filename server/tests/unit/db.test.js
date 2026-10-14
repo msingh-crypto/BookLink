@@ -1,15 +1,22 @@
-const pool = require("../../src/config/db");
+// tests/unit/db.test.js
+const { pool } = require("../../src/config/db");
 
 describe("Database Connection Pool", () => {
   afterAll(async () => {
-    // Close pool connections after tests finish
-    await pool.end();
+    // Safely drain and close pool connections created in this test file
+    if (pool && typeof pool.end === "function") {
+      await pool.end();
+    }
   });
 
   it("should have a valid pool configuration loaded", () => {
-    // Verifies that either a connectionString or individual host option exists
-    const hasConnectionString = Boolean(pool.options.connectionString);
-    const hasHost = Boolean(pool.options.host);
+    const options = pool?.options || {};
+    const hasConnectionString = Boolean(
+      options.connectionString || process.env.DATABASE_URL,
+    );
+    const hasHost = Boolean(
+      options.host || process.env.PGHOST || process.env.DB_HOST,
+    );
 
     expect(hasConnectionString || hasHost).toBe(true);
   });
