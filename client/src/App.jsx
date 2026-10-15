@@ -1,19 +1,21 @@
 import { useState, useEffect } from "react";
+
 import Navbar from "./components/Navbar";
 import Register from "./components/Register";
 import Login from "./components/Login";
+import CreateListingForm from "./components/CreateListingForm";
 
 export default function App() {
-  // Track which page the student wants to see
-  const [view, setView] = useState("register");
+  // Track the current page
+  const [currentView, setCurrentView] = useState("register");
 
-  // Store the currently authenticated student
+  // Store the authenticated user
   const [user, setUser] = useState(null);
 
-  // Track whether we're checking an existing session
+  // Check whether an existing session is valid
   const [checkingSession, setCheckingSession] = useState(true);
 
-  // Display authentication errors
+  // Store authentication errors
   const [error, setError] = useState("");
 
   // Check whether the student is already logged in
@@ -29,7 +31,9 @@ export default function App() {
 
         if (response.ok) {
           const data = await response.json();
+
           setUser(data.user);
+          setCurrentView("home");
         } else if (response.status !== 401) {
           setError("Unable to verify your session.");
         }
@@ -49,13 +53,14 @@ export default function App() {
     return () => controller.abort();
   }, []);
 
-  // Update user information after successful login
+  // Handle successful login
   function handleLogin(loggedInUser) {
     setUser(loggedInUser);
+    setCurrentView("home");
     setError("");
   }
 
-  // Log out the authenticated student
+  // Handle logout
   async function handleLogout() {
     setError("");
 
@@ -70,7 +75,7 @@ export default function App() {
       }
 
       setUser(null);
-      setView("login");
+      setCurrentView("login");
     } catch (err) {
       setError(err.message);
     }
@@ -80,50 +85,92 @@ export default function App() {
     <div className="min-h-screen bg-slate-50">
       <Navbar />
 
-      <main className="container mx-auto px-4">
+      <main className="container mx-auto px-4 py-6">
         {error && <p className="text-red-600 text-center mt-4">{error}</p>}
 
-        {/* Show loading message while checking the session */}
+        {/* Check existing authentication session */}
         {checkingSession && (
           <p className="text-center mt-10">Checking your session...</p>
         )}
 
-        {/* Show student information when logged in */}
-        {!checkingSession && user && (
-          <div className="text-center py-12">
-            <h2 className="text-2xl font-bold mb-4">Welcome to BookLink!</h2>
-
-            <p className="mb-6">Logged in as: {user.email}</p>
-
-            <button
-              onClick={handleLogout}
-              className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-md"
-            >
-              Logout
-            </button>
-          </div>
-        )}
-
-        {/* Show registration or login when logged out */}
+        {/* Show registration and login when logged out */}
         {!checkingSession && !user && (
           <>
             <div className="flex justify-center gap-4 mt-8">
               <button
-                onClick={() => setView("register")}
+                type="button"
+                onClick={() => setCurrentView("register")}
                 className="bg-blue-600 text-white px-4 py-2 rounded-md"
               >
                 Register
               </button>
 
               <button
-                onClick={() => setView("login")}
+                type="button"
+                onClick={() => setCurrentView("login")}
                 className="bg-blue-600 text-white px-4 py-2 rounded-md"
               >
                 Login
               </button>
             </div>
 
-            {view === "login" ? <Login onLogin={handleLogin} /> : <Register />}
+            {currentView === "login" ? (
+              <Login onLogin={handleLogin} />
+            ) : (
+              <Register />
+            )}
+          </>
+        )}
+
+        {/* Show authenticated features when logged in */}
+        {!checkingSession && user && (
+          <>
+            <div className="flex justify-center gap-4 py-2 bg-slate-200">
+              <button
+                type="button"
+                className="px-3 py-1 bg-white rounded shadow text-sm"
+                onClick={() => setCurrentView("home")}
+              >
+                Home
+              </button>
+
+              <button
+                type="button"
+                className="px-3 py-1 bg-white rounded shadow text-sm"
+                onClick={() => setCurrentView("create-listing")}
+              >
+                Create Listing View
+              </button>
+
+              <button
+                type="button"
+                className="px-3 py-1 bg-red-600 text-white rounded shadow text-sm"
+                onClick={handleLogout}
+              >
+                Logout
+              </button>
+            </div>
+
+            {currentView !== "create-listing" && (
+              <div className="text-center py-12">
+                <h2 className="text-2xl font-bold mb-4">
+                  Welcome to BookLink!
+                </h2>
+
+                <p className="mb-6">Logged in as: {user.email}</p>
+              </div>
+            )}
+
+            {currentView === "create-listing" && (
+              <div className="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-sm">
+                <CreateListingForm
+                  sellerId={user.id}
+                  onSuccess={(data) => {
+                    alert(`Listing created successfully! ID: ${data.id}`);
+                  }}
+                />
+              </div>
+            )}
           </>
         )}
       </main>
