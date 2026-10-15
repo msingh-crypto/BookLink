@@ -7,6 +7,24 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- 1. USERS TABLE
 -- US-01: Student Registration (Lakehead email check + cryptographic password storage)
 -- US-02: Secure Login & Logout
+CREATE TABLE IF NOT EXISTS user_sessions (
+    token_hash CHAR(64) PRIMARY KEY,
+
+    user_id UUID NOT NULL
+        REFERNCES users(id) ON DELETE CASCADE,
+
+    created_at TIMESTAMPTZ NOT NULL 
+        DEFAULT  CURRENT_TIMESTAMP,
+    
+    expires_at TIMESTAMPTZ NOT NULL
+
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id 
+ON user_sessions(user_id);
+
+CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at
+ON user_sessions(expires_at);
 -- US-12: Moderation & Account Suspension ('suspended' status)
 -- US-13: Admin Roles & Permissions ('student', 'moderator', 'admin')
 -- =============================================================================
