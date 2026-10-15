@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS user_sessions (
     token_hash CHAR(64) PRIMARY KEY,
 
     user_id UUID NOT NULL
-        REFERNCES users(id) ON DELETE CASCADE,
+        REFERENCES users(id) ON DELETE CASCADE,
 
     created_at TIMESTAMPTZ NOT NULL 
         DEFAULT  CURRENT_TIMESTAMP,
