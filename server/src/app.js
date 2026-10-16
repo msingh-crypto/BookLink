@@ -7,8 +7,14 @@ const authRoutes = require("./routes/auth");
 const listingRoutes = require("./routes/listingRoutes");
 
 const app = express();
+app.disable("x-powered-by");
 
-app.use(cors());
+app.use(
+  cors({
+    origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
+    credentials: true,
+  }),
+);
 app.use(express.json());
 
 // Serve interactive API Docs
