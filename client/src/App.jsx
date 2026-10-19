@@ -4,6 +4,7 @@ import Navbar from "./components/Navbar";
 import Register from "./components/Register";
 import Login from "./components/Login";
 import CreateListingForm from "./components/CreateListingForm";
+import ListingsView from "./components/ListingsView";
 
 export default function App() {
   // Track the current page
@@ -112,11 +113,25 @@ export default function App() {
               >
                 Login
               </button>
+
+              <button
+                type="button"
+                onClick={() => setCurrentView("listings")}
+                className="bg-white text-blue-700 border border-blue-600 px-4 py-2 rounded-md"
+              >
+                Browse Listings
+              </button>
             </div>
 
-            {currentView === "login" ? (
-              <Login onLogin={handleLogin} />
-            ) : (
+            {currentView === "login" && <Login onLogin={handleLogin} />}
+
+            {currentView === "listings" && (
+              <div className="mt-8">
+                <ListingsView onCreateListing={() => setCurrentView("login")} />
+              </div>
+            )}
+
+            {currentView !== "login" && currentView !== "listings" && (
               <Register />
             )}
           </>
@@ -137,6 +152,14 @@ export default function App() {
               <button
                 type="button"
                 className="px-3 py-1 bg-white rounded shadow text-sm"
+                onClick={() => setCurrentView("listings")}
+              >
+                Browse Listings
+              </button>
+
+              <button
+                type="button"
+                className="px-3 py-1 bg-white rounded shadow text-sm"
                 onClick={() => setCurrentView("create-listing")}
               >
                 Create Listing View
@@ -151,13 +174,29 @@ export default function App() {
               </button>
             </div>
 
-            {currentView !== "create-listing" && (
+            {currentView === "home" && (
               <div className="text-center py-12">
                 <h2 className="text-2xl font-bold mb-4">
                   Welcome to BookLink!
                 </h2>
 
                 <p className="mb-6">Logged in as: {user.email}</p>
+
+                <button
+                  type="button"
+                  onClick={() => setCurrentView("listings")}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
+                >
+                  Browse current listings
+                </button>
+              </div>
+            )}
+
+            {currentView === "listings" && (
+              <div className="py-6">
+                <ListingsView
+                  onCreateListing={() => setCurrentView("create-listing")}
+                />
               </div>
             )}
 
@@ -167,6 +206,7 @@ export default function App() {
                   sellerId={user.id}
                   onSuccess={(data) => {
                     alert(`Listing created successfully! ID: ${data.id}`);
+                    setCurrentView("listings");
                   }}
                 />
               </div>

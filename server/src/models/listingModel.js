@@ -40,4 +40,78 @@ const createListing = async (listingData) => {
   return rows[0];
 };
 
-module.exports = { createListing };
+// Public-facing columns only. Seller contact details (email, etc.) are
+// deliberately left out to protect seller privacy (US-08).
+const PUBLIC_LISTING_COLUMNS = `
+  l.id,
+  l.seller_id,
+  l.title,
+  l.isbn,
+  l.course_code,
+  l.edition,
+  l.condition,
+  l.price::float AS price,
+  l.meetup_zone,
+  l.description,
+  l.status,
+  l.created_at,
+  c.name AS category_name,
+  c.code AS category_code
+`;
+
+// Return all active listings, newest first, with their photo URLs.
+const getActiveListings = async ({ limit = 50, offset = 0 } = {}) => {
+  const query = `
+    SELECT
+      ${PUBLIC_LISTING_COLUMNS},
+      COALESCE(
+        (
+          SELECT json_agg(p.image_url ORDER BY p.created_at, p.id)
+          FROM listing_photos p
+          WHERE p.listing_id = l.id
+        ),
+        '[]'::json
+      ) AS photos
+    FROM listings l
+    LEFT JOIN categories c ON c.id = l.category_id
+    WHERE l.status = 'active'
+    ORDER BY l.created_at DESC, l.id
+    LIMIT $1 OFFSET $2;
+  `;
+
+  const countQuery = `SELECT COUNT(*)::int AS total FROM listings WHERE status = 'active';`;
+
+  const [listingResult, countResult] = await Promise.all([
+    db.query(query, [limit, offset]),
+    db.query(countQuery),
+  ]);
+
+  return {
+    listings: listingResult.rows,
+    total: countResult.rows[0].total,
+  };
+};
+
+// Return a single active listing with all of its photos, or undefined.
+const getListingById = async (id) => {
+  const query = `
+    SELECT
+      ${PUBLIC_LISTING_COLUMNS},
+      COALESCE(
+        (
+          SELECT json_agg(p.image_url ORDER BY p.created_at, p.id)
+          FROM listing_photos p
+          WHERE p.listing_id = l.id
+        ),
+        '[]'::json
+      ) AS photos
+    FROM listings l
+    LEFT JOIN categories c ON c.id = l.category_id
+    WHERE l.id = $1 AND l.status = 'active';
+  `;
+
+  const { rows } = await db.query(query, [id]);
+  return rows[0];
+};
+
+module.exports = { createListing, getActiveListings, getListingById };
