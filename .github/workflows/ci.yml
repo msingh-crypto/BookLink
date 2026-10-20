@@ -64,7 +64,7 @@ jobs:
           DB_PASSWORD: test_password
           DB_NAME: test_db
           SESSION_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
         run: npm test
         working-directory: ./server
 
