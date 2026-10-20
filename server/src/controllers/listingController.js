@@ -45,4 +45,20 @@ const handleCreateListing = async (req, res) => {
   }
 };
 
-module.exports = { handleCreateListing };
+const handleGetSellerContact = async (req, res) => {
+  try {
+    const listingId = req.params.id;
+    const seller = await listingModel.getSellerContactByListingId(listingId);
+
+    if (!seller) {
+      return res.status(404).json({ error: "Listing or seller not found." });
+    }
+
+    return res.status(200).json({ email: seller.email });
+  } catch (err) {
+    console.error("Error retrieving seller contact:", err);
+    return res.status(500).json({ error: "Internal server error." });
+  }
+};
+
+module.exports = { handleCreateListing, handleGetSellerContact };

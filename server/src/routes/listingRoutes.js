@@ -1,7 +1,11 @@
 const express = require("express");
 const router = express.Router();
 const upload = require("../config/upload");
-const { handleCreateListing } = require("../controllers/listingController");
+const requireAuth = require("../middleware/requireAuth");
+const {
+  handleCreateListing,
+  handleGetSellerContact,
+} = require("../controllers/listingController");
 const { uploadListingPhoto } = require("../controllers/photoController");
 
 /**
@@ -121,5 +125,35 @@ router.post(
   },
   uploadListingPhoto,
 );
+
+/**
+ * @swagger
+ * /api/listings/{id}/contact:
+ *   get:
+ *     summary: Get protected seller contact information (US-08)
+ *     tags: [Listings]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: The UUID of the listing
+ *     responses:
+ *       200:
+ *         description: Seller email retrieved successfully
+ *         content:
+ *           application/json:
+ *             example:
+ *               email: "seller@lakeheadu.ca"
+ *       401:
+ *         description: Unauthorized - Authentication required
+ *       404:
+ *         description: Listing or seller not found
+ *       500:
+ *         description: Server error
+ */
+router.get("/listings/:id/contact", requireAuth, handleGetSellerContact);
 
 module.exports = router;
