@@ -5,6 +5,7 @@ const swaggerSpec = require("./config/swagger");
 const healthRoutes = require("./routes/health");
 const authRoutes = require("./routes/auth");
 const listingRoutes = require("./routes/listingRoutes");
+const adminRouter = require("./routes/admin");
 
 const app = express();
 app.disable("x-powered-by");
@@ -35,5 +36,6 @@ app.use(
 app.use("/api", healthRoutes);
 app.use("/api", authRoutes);
 app.use("/api", listingRoutes);
+app.use("/api/admin", adminRouter);
 
 module.exports = app;
