@@ -6,6 +6,7 @@ import AuthModal from "./components/AuthModal";
 import Register from "./components/Register";
 import Login from "./components/Login";
 import CreateListingForm from "./components/CreateListingForm";
+import ModerationDashboard from "./components/ModerationDashboard";
 
 export default function App() {
   // Navigation view: "home" | "books" | "create-listing"
@@ -138,6 +139,13 @@ export default function App() {
                 />
               </div>
             )}
+
+            {/* Admin / Moderator Console */}
+            {currentView === "moderation" &&
+              user &&
+              (user.role === "admin" || user.role === "moderator") && (
+                <ModerationDashboard user={user} />
+              )}
           </>
         )}
       </main>

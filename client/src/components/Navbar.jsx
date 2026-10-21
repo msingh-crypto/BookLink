@@ -49,6 +49,16 @@ export default function Navbar({
             </button>
           )}
 
+          {/* Show Moderation Console button for Admin or Moderator roles */}
+          {user && (user.role === "admin" || user.role === "moderator") && (
+            <button
+              onClick={() => setCurrentView("moderation")}
+              className={`text-sm font-medium transition-colors ${currentView === "moderation" ? "text-amber-400 font-semibold" : "text-slate-300 hover:text-amber-300"}`}
+            >
+              Moderation
+            </button>
+          )}
+
           {/* Dynamic Auth Section */}
           <div className="flex items-center gap-3 pl-4 border-l border-slate-700">
             {user ? (
@@ -93,6 +103,7 @@ Navbar.propTypes = {
   user: PropTypes.shape({
     id: PropTypes.string,
     email: PropTypes.string,
+    role: PropTypes.string,
   }),
   onOpenAuth: PropTypes.func.isRequired,
   onLogout: PropTypes.func.isRequired,
