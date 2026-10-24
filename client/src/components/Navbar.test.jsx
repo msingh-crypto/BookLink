@@ -34,4 +34,16 @@ describe("Navbar Component", () => {
     expect(screen.getByText("Logout")).toBeInTheDocument();
     expect(screen.getByText("+ Sell Book")).toBeInTheDocument();
   });
+
+  it("greets the user by first name when one is saved", () => {
+    render(
+      <Navbar
+        {...mockProps}
+        user={{ id: "123", email: "naduva@lakeheadu.ca", first_name: "Nick" }}
+      />,
+    );
+
+    expect(screen.getByText("Nick")).toBeInTheDocument();
+    expect(screen.queryByText("naduva")).not.toBeInTheDocument();
+  });
 });

@@ -20,6 +20,7 @@ const requireAuth = require("../middleware/requireAuth");
  *             required:
  *               - email
  *               - password
+ *               - first_name
  *             properties:
  *               email:
  *                 type: string
@@ -27,6 +28,10 @@ const requireAuth = require("../middleware/requireAuth");
  *               password:
  *                 type: string
  *                 example: SecurePass123!
+ *               first_name:
+ *                 type: string
+ *                 maxLength: 50
+ *                 example: Nick
  *     responses:
  *       201:
  *         description: Account successfully registered.

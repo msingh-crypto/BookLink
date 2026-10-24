@@ -15,7 +15,7 @@ const {
 
 async function register(req, res) {
   try {
-    const { email, password } = req.body;
+    const { email, password, first_name: firstName } = req.body;
 
     // 1. Validate required fields
     if (!email || !password) {
@@ -33,7 +33,23 @@ async function register(req, res) {
       });
     }
 
-    // 3. Check for existing user (duplicate registration check)
+    // 3. Validate first name (shown in the navbar greeting)
+    const cleanFirstName =
+      typeof firstName === "string" ? firstName.trim() : "";
+
+    if (!cleanFirstName) {
+      return res.status(400).json({
+        error: "First name is required.",
+      });
+    }
+
+    if (cleanFirstName.length > 50) {
+      return res.status(400).json({
+        error: "First name must be 50 characters or fewer.",
+      });
+    }
+
+    // 4. Check for existing user (duplicate registration check)
     const existingUser = await userModel.findUserByEmail(cleanEmail);
     if (existingUser) {
       return res.status(409).json({
@@ -41,12 +57,16 @@ async function register(req, res) {
       });
     }
 
-    // 4. Hash the password cryptographically (NFR-02)
+    // 5. Hash the password cryptographically (NFR-02)
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
-    // 5. Store user in database
-    const newUser = await userModel.createUser(cleanEmail, passwordHash);
+    // 6. Store user and their first name in the database
+    const newUser = await userModel.createUser(
+      cleanEmail,
+      passwordHash,
+      cleanFirstName,
+    );
 
     return res.status(201).json({
       message: "Student account registered successfully.",
@@ -55,6 +75,7 @@ async function register(req, res) {
         email: newUser.email,
         role: newUser.role,
         status: newUser.status,
+        first_name: newUser.first_name,
       },
     });
   } catch (error) {
@@ -122,6 +143,7 @@ async function login(req, res) {
         id: user.id,
         email: user.email,
         role: user.role,
+        first_name: user.first_name,
       },
     });
   } catch (error) {
