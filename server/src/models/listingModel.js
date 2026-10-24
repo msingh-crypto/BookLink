@@ -114,4 +114,20 @@ const getListingById = async (id) => {
   return rows[0];
 };
 
-module.exports = { createListing, getActiveListings, getListingById };
+const getSellerContactByListingId = async (listingId) => {
+  const query = `
+    SELECT u.email
+    FROM listings l
+    JOIN users u ON l.seller_id = u.id
+    WHERE l.id = $1;
+  `;
+  const { rows } = await db.query(query, [listingId]);
+  return rows[0];
+};
+
+module.exports = {
+  createListing,
+  getActiveListings,
+  getListingById,
+  getSellerContactByListingId,
+};

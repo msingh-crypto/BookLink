@@ -1,25 +1,34 @@
 import { useState, useEffect } from "react";
 
 import Navbar from "./components/Navbar";
+import LandingHero from "./components/LandingHero";
+import AuthModal from "./components/AuthModal";
 import Register from "./components/Register";
 import Login from "./components/Login";
 import CreateListingForm from "./components/CreateListingForm";
 import ListingsView from "./components/ListingsView";
+import ModerationDashboard from "./components/ModerationDashboard";
 
 export default function App() {
-  // Track the current page
-  const [currentView, setCurrentView] = useState("register");
+  // Navigation view: "home" | "books" | "create-listing" | "moderation"
+  const [currentView, setCurrentView] = useState("home");
 
-  // Store the authenticated user
+  // Authenticated user object { id, email }
   const [user, setUser] = useState(null);
 
-  // Check whether an existing session is valid
+  // Session verification flag
   const [checkingSession, setCheckingSession] = useState(true);
 
-  // Store authentication errors
+  // Global application errors
   const [error, setError] = useState("");
 
-  // Check whether the student is already logged in
+  // Controls auth modal visibility and current mode ("login" | "register")
+  const [authModal, setAuthModal] = useState({
+    isOpen: false,
+    mode: "login",
+  });
+
+  // Verify existing backend session on initial load
   useEffect(() => {
     const controller = new AbortController();
 
@@ -32,9 +41,7 @@ export default function App() {
 
         if (response.ok) {
           const data = await response.json();
-
           setUser(data.user);
-          setCurrentView("home");
         } else if (response.status !== 401) {
           setError("Unable to verify your session.");
         }
@@ -54,14 +61,20 @@ export default function App() {
     return () => controller.abort();
   }, []);
 
-  // Handle successful login
+  // Handle successful user login
   function handleLogin(loggedInUser) {
     setUser(loggedInUser);
-    setCurrentView("home");
+    setAuthModal({ isOpen: false, mode: "login" });
     setError("");
   }
 
-  // Handle logout
+  // Handle successful registration
+  function handleRegisterSuccess() {
+    // Switch modal mode to login or prompt user to log in
+    setAuthModal({ isOpen: true, mode: "login" });
+  }
+
+  // Handle user logout
   async function handleLogout() {
     setError("");
 
@@ -76,144 +89,92 @@ export default function App() {
       }
 
       setUser(null);
-      setCurrentView("login");
+      setCurrentView("home");
     } catch (err) {
       setError(err.message);
     }
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <Navbar />
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
+      {/* Top Navigation Bar */}
+      <Navbar
+        user={user}
+        currentView={currentView}
+        setCurrentView={setCurrentView}
+        onOpenAuth={(mode) => setAuthModal({ isOpen: true, mode })}
+        onLogout={handleLogout}
+      />
 
-      <main className="container mx-auto px-4 py-6">
-        {error && <p className="text-red-600 text-center mt-4">{error}</p>}
+      {/* Main Content View Area */}
+      <main className="container mx-auto px-4 py-6 flex-1">
+        {error && <p className="text-red-600 text-center mb-4">{error}</p>}
 
-        {/* Check existing authentication session */}
-        {checkingSession && (
-          <p className="text-center mt-10">Checking your session...</p>
-        )}
-
-        {/* Show registration and login when logged out */}
-        {!checkingSession && !user && (
+        {checkingSession ? (
+          <p className="text-center mt-10 text-slate-500">
+            Checking session...
+          </p>
+        ) : (
           <>
-            <div className="flex justify-center gap-4 mt-8">
-              <button
-                type="button"
-                onClick={() => setCurrentView("register")}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md"
-              >
-                Register
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setCurrentView("login")}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md"
-              >
-                Login
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setCurrentView("listings")}
-                className="bg-white text-blue-700 border border-blue-600 px-4 py-2 rounded-md"
-              >
-                Browse Listings
-              </button>
-            </div>
-
-            {currentView === "login" && <Login onLogin={handleLogin} />}
-
-            {currentView === "listings" && (
-              <div className="mt-8">
-                <ListingsView onCreateListing={() => setCurrentView("login")} />
-              </div>
-            )}
-
-            {currentView !== "login" && currentView !== "listings" && (
-              <Register />
-            )}
-          </>
-        )}
-
-        {/* Show authenticated features when logged in */}
-        {!checkingSession && user && (
-          <>
-            <div className="flex justify-center gap-4 py-2 bg-slate-200">
-              <button
-                type="button"
-                className="px-3 py-1 bg-white rounded shadow text-sm"
-                onClick={() => setCurrentView("home")}
-              >
-                Home
-              </button>
-
-              <button
-                type="button"
-                className="px-3 py-1 bg-white rounded shadow text-sm"
-                onClick={() => setCurrentView("listings")}
-              >
-                Browse Listings
-              </button>
-
-              <button
-                type="button"
-                className="px-3 py-1 bg-white rounded shadow text-sm"
-                onClick={() => setCurrentView("create-listing")}
-              >
-                Create Listing View
-              </button>
-
-              <button
-                type="button"
-                className="px-3 py-1 bg-red-600 text-white rounded shadow text-sm"
-                onClick={handleLogout}
-              >
-                Logout
-              </button>
-            </div>
-
+            {/* Smooth Public Homepage / Landing Hero */}
             {currentView === "home" && (
-              <div className="text-center py-12">
-                <h2 className="text-2xl font-bold mb-4">
-                  Welcome to BookLink!
-                </h2>
-
-                <p className="mb-6">Logged in as: {user.email}</p>
-
-                <button
-                  type="button"
-                  onClick={() => setCurrentView("listings")}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-                >
-                  Browse current listings
-                </button>
-              </div>
+              <LandingHero
+                onGetStarted={() =>
+                  setAuthModal({
+                    isOpen: true,
+                    mode: user ? "home" : "register",
+                  })
+                }
+              />
             )}
 
-            {currentView === "listings" && (
-              <div className="py-6">
-                <ListingsView
-                  onCreateListing={() => setCurrentView("create-listing")}
-                />
-              </div>
+            {/* Public Books View: browse active listings, logged in or not */}
+            {currentView === "books" && (
+              <ListingsView
+                onCreateListing={() =>
+                  user
+                    ? setCurrentView("create-listing")
+                    : setAuthModal({ isOpen: true, mode: "login" })
+                }
+              />
             )}
 
-            {currentView === "create-listing" && (
-              <div className="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-sm">
+            {/* Authenticated Create Listing Form */}
+            {currentView === "create-listing" && user && (
+              <div className="max-w-2xl mx-auto bg-white p-6 rounded-xl shadow-sm border border-slate-200">
                 <CreateListingForm
                   sellerId={user.id}
                   onSuccess={(data) => {
                     alert(`Listing created successfully! ID: ${data.id}`);
-                    setCurrentView("listings");
+                    setCurrentView("books");
                   }}
                 />
               </div>
             )}
+
+            {/* Admin / Moderator Console */}
+            {currentView === "moderation" &&
+              user &&
+              (user.role === "admin" || user.role === "moderator") && (
+                <ModerationDashboard user={user} />
+              )}
           </>
         )}
       </main>
+
+      {/* Auth Modal Overlay */}
+      <AuthModal
+        isOpen={authModal.isOpen}
+        mode={authModal.mode}
+        setMode={(mode) => setAuthModal((prev) => ({ ...prev, mode }))}
+        onClose={() => setAuthModal({ ...authModal, isOpen: false })}
+      >
+        {authModal.mode === "login" ? (
+          <Login onLogin={handleLogin} />
+        ) : (
+          <Register onSuccess={handleRegisterSuccess} />
+        )}
+      </AuthModal>
     </div>
   );
 }
