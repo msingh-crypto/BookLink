@@ -59,7 +59,7 @@ describe("ListingsView Component", () => {
     expect(screen.getByText("Intro to Psychology")).toBeInTheDocument();
     expect(screen.getByText(/2 books for sale/i)).toBeInTheDocument();
     expect(globalThis.fetch).toHaveBeenCalledWith(
-      "/api/listings?limit=20&offset=0",
+      "/api/listings?limit=20&offset=0&sortBy=newest&sortOrder=desc",
       expect.any(Object),
     );
   });
@@ -143,7 +143,7 @@ describe("ListingsView Component", () => {
 
     expect(await screen.findByText("Organic Chemistry")).toBeInTheDocument();
     expect(globalThis.fetch).toHaveBeenLastCalledWith(
-      "/api/listings?limit=20&offset=1",
+      "/api/listings?limit=20&offset=1&sortBy=newest&sortOrder=desc",
       expect.any(Object),
     );
     await waitFor(() =>
@@ -151,6 +151,45 @@ describe("ListingsView Component", () => {
         screen.queryByRole("button", { name: /load more/i }),
       ).not.toBeInTheDocument(),
     );
+  });
+
+  it("sends the correct API parameters when sorting changes", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        listings: [],
+        total: 0,
+        limit: 20,
+        offset: 0,
+      }),
+    });
+
+    render(<ListingsView />);
+
+    const sortingDropdown = screen.getByLabelText("Sort by:");
+
+    const sortingOptions = [
+      ["price-asc", "price", "asc"],
+      ["price-desc", "price", "desc"],
+      ["condition-asc", "condition", "asc"],
+      ["condition-desc", "condition", "desc"],
+    ];
+
+    for (const [value, sortBy, sortOrder] of sortingOptions) {
+      fireEvent.change(sortingDropdown, {
+        target: { value },
+      });
+
+      await waitFor(() => {
+        expect(globalThis.fetch).toHaveBeenCalledWith(
+          `/api/listings?limit=20&offset=0&sortBy=${sortBy}&sortOrder=${sortOrder}`,
+          expect.objectContaining({
+            credentials: "include",
+            signal: expect.any(AbortSignal),
+          }),
+        );
+      });
+    }
   });
 });
 

@@ -234,18 +234,27 @@ export default function ListingsView({ onCreateListing }) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState(null);
+  const [sorting, setSorting] = useState("newest-desc");
 
-  const fetchPage = useCallback(async (offset, signal) => {
-    const response = await fetch(
-      `/api/listings?limit=${PAGE_SIZE}&offset=${offset}`,
-      { credentials: "include", signal },
-    );
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || "Failed to load listings.");
-    }
-    return data;
-  }, []);
+  const fetchPage = useCallback(
+    async (offset, signal) => {
+      const [sortBy, sortOrder] = sorting.split("-");
+
+      const response = await fetch(
+        `/api/listings?limit=${PAGE_SIZE}&offset=${offset}&sortBy=${sortBy}&sortOrder=${sortOrder}`,
+        { credentials: "include", signal },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to load listings.");
+      }
+
+      return data;
+    },
+    [sorting],
+  );
 
   const loadFirstPage = useCallback(
     async (signal) => {
@@ -311,14 +320,35 @@ export default function ListingsView({ onCreateListing }) {
             </p>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => void loadFirstPage()}
-          disabled={loading}
-          className="px-3 py-1.5 text-sm bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50"
-        >
-          Refresh
-        </button>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <label htmlFor="listing-sort" className="text-sm text-slate-700">
+            Sort by:
+          </label>
+
+          <select
+            id="listing-sort"
+            value={sorting}
+            onChange={(event) => setSorting(event.target.value)}
+            disabled={loading}
+            className="px-3 py-1.5 text-sm bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="newest-desc">Newest First</option>
+            <option value="price-asc">Price: Low to High</option>
+            <option value="price-desc">Price: High to Low</option>
+            <option value="condition-asc">Condition: Low to High</option>
+            <option value="condition-desc">Condition: High to Low</option>
+          </select>
+
+          <button
+            type="button"
+            onClick={() => void loadFirstPage()}
+            disabled={loading}
+            className="px-3 py-1.5 text-sm bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       {error && (

@@ -33,7 +33,7 @@ const handleCreateListing = async (req, res) => {
     if (
       price === undefined ||
       price === null ||
-      isNaN(price) ||
+      Number.isNaN(price) ||
       Number(price) < 0
     ) {
       return res
@@ -68,6 +68,9 @@ const handleGetListings = async (req, res) => {
     const limit = parseNonNegativeInt(req.query.limit, DEFAULT_PAGE_SIZE);
     const offset = parseNonNegativeInt(req.query.offset, 0);
 
+    const sortBy = req.query.sortBy || "newest";
+    const sortOrder = req.query.sortOrder || "desc";
+
     if (limit === null || limit < 1 || limit > MAX_PAGE_SIZE) {
       return res.status(400).json({
         error: `limit must be an integer between 1 and ${MAX_PAGE_SIZE}.`,
@@ -80,9 +83,26 @@ const handleGetListings = async (req, res) => {
         .json({ error: "offset must be a non-negative integer." });
     }
 
+    const validSortFields = ["newest", "price", "condition"];
+    const validSortOrders = ["asc", "desc"];
+
+    if (!validSortFields.includes(sortBy)) {
+      return res.status(400).json({
+        error: "Invalid sorting field.",
+      });
+    }
+
+    if (!validSortOrders.includes(sortOrder)) {
+      return res.status(400).json({
+        error: "Invalid sorting order.",
+      });
+    }
+
     const { listings, total } = await listingModel.getActiveListings({
       limit,
       offset,
+      sortBy,
+      sortOrder,
     });
 
     return res.status(200).json({ listings, total, limit, offset });
