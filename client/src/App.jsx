@@ -6,10 +6,11 @@ import AuthModal from "./components/AuthModal";
 import Register from "./components/Register";
 import Login from "./components/Login";
 import CreateListingForm from "./components/CreateListingForm";
+import ListingsView from "./components/ListingsView";
 import ModerationDashboard from "./components/ModerationDashboard";
 
 export default function App() {
-  // Navigation view: "home" | "books" | "create-listing"
+  // Navigation view: "home" | "books" | "create-listing" | "moderation"
   const [currentView, setCurrentView] = useState("home");
 
   // Authenticated user object { id, email }
@@ -127,6 +128,17 @@ export default function App() {
               />
             )}
 
+            {/* Public Books View: browse active listings, logged in or not */}
+            {currentView === "books" && (
+              <ListingsView
+                onCreateListing={() =>
+                  user
+                    ? setCurrentView("create-listing")
+                    : setAuthModal({ isOpen: true, mode: "login" })
+                }
+              />
+            )}
+
             {/* Authenticated Create Listing Form */}
             {currentView === "create-listing" && user && (
               <div className="max-w-2xl mx-auto bg-white p-6 rounded-xl shadow-sm border border-slate-200">
@@ -134,7 +146,7 @@ export default function App() {
                   sellerId={user.id}
                   onSuccess={(data) => {
                     alert(`Listing created successfully! ID: ${data.id}`);
-                    setCurrentView("home");
+                    setCurrentView("books");
                   }}
                 />
               </div>

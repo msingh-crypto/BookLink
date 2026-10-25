@@ -4,6 +4,8 @@ const upload = require("../config/upload");
 const requireAuth = require("../middleware/requireAuth");
 const {
   handleCreateListing,
+  handleGetListings,
+  handleGetListingById,
   handleGetSellerContact,
 } = require("../controllers/listingController");
 const { uploadListingPhoto } = require("../controllers/photoController");
@@ -54,7 +56,126 @@ const { uploadListingPhoto } = require("../controllers/photoController");
  *           type: string
  *           format: uuid
  *           example: "11111111-1111-1111-1111-111111111111"
+ *     Listing:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *         seller_id:
+ *           type: string
+ *           format: uuid
+ *         title:
+ *           type: string
+ *         isbn:
+ *           type: string
+ *           nullable: true
+ *         course_code:
+ *           type: string
+ *         edition:
+ *           type: string
+ *           nullable: true
+ *         condition:
+ *           type: string
+ *           enum: [New, Like New, Good, Fair, Poor]
+ *         price:
+ *           type: number
+ *           format: float
+ *         meetup_zone:
+ *           type: string
+ *         description:
+ *           type: string
+ *         status:
+ *           type: string
+ *           enum: [active]
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ *         category_name:
+ *           type: string
+ *           nullable: true
+ *         category_code:
+ *           type: string
+ *           nullable: true
+ *         photos:
+ *           type: array
+ *           items:
+ *             type: string
+ *             format: uri
  */
+
+/**
+ * @swagger
+ * /api/listings:
+ *   get:
+ *     summary: Browse current (active) textbook listings
+ *     description: Public endpoint. Returns active listings newest first. Seller contact details are never included (US-08).
+ *     tags: [Listings]
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           minimum: 0
+ *           default: 0
+ *     responses:
+ *       200:
+ *         description: A page of active listings
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 listings:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Listing'
+ *                 total:
+ *                   type: integer
+ *                 limit:
+ *                   type: integer
+ *                 offset:
+ *                   type: integer
+ *       400:
+ *         description: Invalid limit or offset
+ *       500:
+ *         description: Server error
+ */
+router.get("/listings", handleGetListings);
+
+/**
+ * @swagger
+ * /api/listings/{id}:
+ *   get:
+ *     summary: View a single active textbook listing
+ *     tags: [Listings]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: The listing
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Listing'
+ *       404:
+ *         description: Listing not found (or no longer active)
+ *       500:
+ *         description: Server error
+ */
+router.get("/listings/:id", handleGetListingById);
 
 /**
  * @swagger
