@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 
 export default function Register() {
+  const [firstName, setFirstName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -64,6 +65,11 @@ export default function Register() {
     setError("");
     setSuccess("");
 
+    if (!firstName.trim()) {
+      setError("Please enter your first name.");
+      return;
+    }
+
     if (!email.toLowerCase().endsWith("@lakeheadu.ca")) {
       setError("Please use an official @lakeheadu.ca email address.");
       return;
@@ -87,7 +93,11 @@ export default function Register() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email,
+          password,
+          first_name: firstName.trim(),
+        }),
       });
 
       const data = await response.json();
@@ -99,6 +109,7 @@ export default function Register() {
 
       // Only set success if response was 201 Created
       setSuccess("Account successfully created! You can now log in.");
+      setFirstName("");
       setEmail("");
       setPassword("");
       setConfirmPassword("");
@@ -134,6 +145,26 @@ export default function Register() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label
+              htmlFor="firstName"
+              className="block text-sm font-medium text-slate-700 mb-1"
+            >
+              First Name
+            </label>
+            <input
+              id="firstName"
+              type="text"
+              required
+              maxLength={50}
+              autoComplete="given-name"
+              placeholder="Your first name"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            />
+          </div>
+
           <div>
             <label
               htmlFor="email"

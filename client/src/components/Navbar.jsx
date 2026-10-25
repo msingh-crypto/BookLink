@@ -66,7 +66,8 @@ export default function Navbar({
                 <span className="text-xs text-slate-300">
                   Hi,{" "}
                   <strong className="text-white">
-                    {user.email ? user.email.split("@")[0] : ""}
+                    {user.first_name ||
+                      (user.email ? user.email.split("@")[0] : "")}
                   </strong>
                 </span>
                 <button
@@ -104,6 +105,7 @@ Navbar.propTypes = {
     id: PropTypes.string,
     email: PropTypes.string,
     role: PropTypes.string,
+    first_name: PropTypes.string,
   }),
   onOpenAuth: PropTypes.func.isRequired,
   onLogout: PropTypes.func.isRequired,

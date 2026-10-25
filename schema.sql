@@ -33,6 +33,14 @@ ON user_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at
 ON user_sessions(expires_at);
 
+-- US-01: First name collected at registration, matched to the account by email
+-- and shown in the navbar greeting after login
+CREATE TABLE IF NOT EXISTS user_profiles (
+    email VARCHAR(255) PRIMARY KEY REFERENCES users(email) ON DELETE CASCADE ON UPDATE CASCADE,
+    first_name VARCHAR(50) NOT NULL CHECK (char_length(btrim(first_name)) > 0),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- =============================================================================
 -- 2. CATEGORIES / DEPARTMENTS TABLE
 -- US-04: Filter by department
