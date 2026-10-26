@@ -108,7 +108,9 @@ export default function Register() {
       }
 
       // Only set success if response was 201 Created
-      setSuccess("Account successfully created! You can now log in.");
+      setSuccess(
+        `Account created! Check ${email.trim()} for a confirmation link, then log in.`,
+      );
       setFirstName("");
       setEmail("");
       setPassword("");

@@ -25,8 +25,8 @@ describe("GET /api/listings/:id/contact - Protected Seller Contact Info (US-08)"
     // Insert test seller account
     await db.query(
       `
-      INSERT INTO users (id, email, password_hash, role, status)
-      VALUES ($1, $2, $3, 'student', 'active');
+      INSERT INTO users (id, email, password_hash, role, status, email_verified)
+      VALUES ($1, $2, $3, 'student', 'active', TRUE);
     `,
       [CONTACT_SUITE_SELLER_ID, TEST_EMAIL, passwordHash],
     );

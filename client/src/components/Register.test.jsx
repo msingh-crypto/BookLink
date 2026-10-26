@@ -68,7 +68,9 @@ describe("Register Component (US-01)", () => {
       first_name: "Nick",
     });
     expect(
-      await screen.findByText(/account successfully created/i),
+      await screen.findByText(
+        /check student@lakeheadu.ca for a confirmation link/i,
+      ),
     ).toBeInTheDocument();
   });
 });

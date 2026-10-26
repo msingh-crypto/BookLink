@@ -9,6 +9,27 @@ import CreateListingForm from "./components/CreateListingForm";
 import ListingsView from "./components/ListingsView";
 import ModerationDashboard from "./components/ModerationDashboard";
 
+// US-01: Banners for the result of clicking the email confirmation link,
+// which redirects back here with ?verified=success|invalid|error
+const VERIFY_NOTICES = {
+  success: {
+    ok: true,
+    text: "Email confirmed! You can now log in.",
+  },
+  invalid: {
+    ok: false,
+    text: "This confirmation link is invalid or has expired. Log in to get a new one.",
+  },
+  error: {
+    ok: false,
+    text: "We couldn't confirm your email. Please try again.",
+  },
+};
+
+const verifiedParam = new URLSearchParams(window.location.search).get(
+  "verified",
+);
+
 export default function App() {
   // Navigation view: "home" | "books" | "create-listing" | "moderation"
   const [currentView, setCurrentView] = useState("home");
@@ -22,11 +43,24 @@ export default function App() {
   // Global application errors
   const [error, setError] = useState("");
 
+  // Email confirmation result from the link in the student's inbox
+  const [verifyNotice, setVerifyNotice] = useState(
+    VERIFY_NOTICES[verifiedParam] || null,
+  );
+
   // Controls auth modal visibility and current mode ("login" | "register")
+  // Opens straight to login after a successful email confirmation
   const [authModal, setAuthModal] = useState({
-    isOpen: false,
+    isOpen: verifiedParam === "success",
     mode: "login",
   });
+
+  // Remove ?verified=... from the address bar so a refresh doesn't repeat it
+  useEffect(() => {
+    if (verifiedParam) {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, []);
 
   // Verify existing backend session on initial load
   useEffect(() => {
@@ -66,6 +100,7 @@ export default function App() {
     setUser(loggedInUser);
     setAuthModal({ isOpen: false, mode: "login" });
     setError("");
+    setVerifyNotice(null);
   }
 
   // Handle successful registration
@@ -109,6 +144,18 @@ export default function App() {
       {/* Main Content View Area */}
       <main className="container mx-auto px-4 py-6 flex-1">
         {error && <p className="text-red-600 text-center mb-4">{error}</p>}
+
+        {verifyNotice && (
+          <div
+            className={`max-w-md mx-auto mb-4 p-3 border-l-4 text-sm rounded ${
+              verifyNotice.ok
+                ? "bg-green-50 border-green-500 text-green-700"
+                : "bg-red-50 border-red-500 text-red-700"
+            }`}
+          >
+            {verifyNotice.text}
+          </div>
+        )}
 
         {checkingSession ? (
           <p className="text-center mt-10 text-slate-500">

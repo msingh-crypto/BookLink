@@ -29,10 +29,10 @@ describe("US-12 - Admin Moderation & Account Suspension", () => {
     // 3. Insert test users
     await db.query(
       `
-      INSERT INTO users (id, email, password_hash, role, status)
+      INSERT INTO users (id, email, password_hash, role, status, email_verified)
       VALUES 
-        ($1, $2, $3, 'admin', 'active'),
-        ($4, 'violator@lakeheadu.ca', $3, 'student', 'active');
+        ($1, $2, $3, 'admin', 'active', TRUE),
+        ($4, 'violator@lakeheadu.ca', $3, 'student', 'active', TRUE);
     `,
       [ADMIN_ID, ADMIN_EMAIL, passwordHash, STUDENT_ID],
     );
