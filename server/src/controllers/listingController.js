@@ -33,7 +33,8 @@ const handleCreateListing = async (req, res) => {
     if (
       price === undefined ||
       price === null ||
-      Number.isNaN(price) ||
+      (typeof price === "string" && price.trim() === "") ||
+      !Number.isFinite(Number(price)) ||
       Number(price) < 0
     ) {
       return res
