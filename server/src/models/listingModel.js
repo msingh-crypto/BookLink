@@ -60,7 +60,28 @@ const PUBLIC_LISTING_COLUMNS = `
 `;
 
 // Return all active listings, newest first, with their photo URLs.
-const getActiveListings = async ({ limit = 50, offset = 0 } = {}) => {
+const getActiveListings = async ({
+  limit = 50,
+  offset = 0,
+  sortBy = "newest",
+  sortOrder = "desc",
+} = {}) => {
+  const sortColumns = {
+    newest: "l.created_at",
+    price: "l.price",
+    condition: `CASE l.condition
+    WHEN 'Poor' THEN 1
+    WHEN 'Fair' THEN 2
+    WHEN 'Good' THEN 3
+    WHEN 'Like New' THEN 4
+    WHEN 'New' THEN 5
+    ELSE 0
+  END`,
+  };
+
+  const sortColumn = sortColumns[sortBy] || sortColumns.newest;
+  const direction = sortOrder === "asc" ? "ASC" : "DESC";
+
   const query = `
     SELECT
       ${PUBLIC_LISTING_COLUMNS},
@@ -75,7 +96,7 @@ const getActiveListings = async ({ limit = 50, offset = 0 } = {}) => {
     FROM listings l
     LEFT JOIN categories c ON c.id = l.category_id
     WHERE l.status = 'active'
-    ORDER BY l.created_at DESC, l.id
+    ORDER BY ${sortColumn} ${direction}, l.created_at DESC, l.id
     LIMIT $1 OFFSET $2;
   `;
 

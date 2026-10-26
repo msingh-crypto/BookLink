@@ -46,4 +46,26 @@ describe("POST /api/listings - Create Textbook Listing", () => {
     expect(res.body).toHaveProperty("id");
     expect(res.body.title).toBe(validPayload.title);
   });
+
+  it.each([["abc"], ["12x"], ["Infinity"], [""], [-10], [null]])(
+    "should reject invalid price %j",
+    async (price) => {
+      const invalidPayload = {
+        seller_id: LISTING_SUITE_SELLER_ID,
+        title: "Invalid Price Test",
+        isbn: "9780134670942",
+        course_code: "COMP-1411",
+        edition: "3rd Edition",
+        condition: "Good",
+        price,
+        meetup_zone: "Agora",
+        description: "Testing invalid price validation.",
+      };
+
+      const res = await request(app).post("/api/listings").send(invalidPayload);
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.error).toBe("Price must be a valid non-negative number.");
+    },
+  );
 });
