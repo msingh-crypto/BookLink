@@ -15,6 +15,10 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'student' CHECK (role IN ('student', 'moderator', 'admin')),
     status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended')),
+    -- US-01: Students must click the emailed confirmation link before logging in
+    email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    email_verification_token_hash CHAR(64) UNIQUE,
+    email_verification_expires_at TIMESTAMPTZ,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

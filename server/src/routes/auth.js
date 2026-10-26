@@ -34,15 +34,37 @@ const requireAuth = require("../middleware/requireAuth");
  *                 example: Nick
  *     responses:
  *       201:
- *         description: Account successfully registered.
+ *         description: Account created; a confirmation link was emailed to the student.
  *       400:
  *         description: Validation failed (missing fields or invalid domain).
  *       409:
  *         description: Account already exists.
  *       500:
  *         description: Internal server error.
+ *       502:
+ *         description: The confirmation email could not be sent, so the account was not created.
  */
 router.post("/auth/register", authController.register);
+
+/**
+ * @swagger
+ * /api/auth/verify-email:
+ *   get:
+ *     summary: Confirm a student's email address
+ *     description: Opened from the link in the confirmation email. Marks the account as verified and redirects to the client with ?verified=success, ?verified=invalid (bad or expired link) or ?verified=error.
+ *     tags:
+ *       - Authentication
+ *     parameters:
+ *       - in: query
+ *         name: token
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       302:
+ *         description: Redirect to the client with the verification result.
+ */
+router.get("/auth/verify-email", authController.verifyEmail);
 
 // US-02: User Login
 
@@ -76,7 +98,7 @@ router.post("/auth/register", authController.register);
  *       401:
  *         description: Invalid email or password
  *       403:
- *         description: Account is not active
+ *         description: Account is not active, or the email is not confirmed yet (a new confirmation link is emailed)
  *       500:
  *         description: Internal server error
  */

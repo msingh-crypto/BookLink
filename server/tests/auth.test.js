@@ -1,6 +1,16 @@
 const request = require("supertest");
 const app = require("../src/app");
 const pool = require("../src/config/db");
+const { sendVerificationEmail } = require("../src/config/mailer");
+
+// Capture confirmation emails instead of sending them through Gmail
+jest.mock("../src/config/mailer");
+
+// The confirmation link from the most recent email sent to this address
+function lastVerificationLink(email) {
+  const calls = sendVerificationEmail.mock.calls.filter(([to]) => to === email);
+  return new URL(calls[calls.length - 1][2]);
+}
 
 const testUserEmail = `test_student_${Date.now()}@lakeheadu.ca`;
 const testPassword = "Password123!";
@@ -25,18 +35,23 @@ describe("POST /api/auth/register (US-01: Student Registration)", () => {
       });
 
     expect(response.status).toBe(201);
-    expect(response.body).toHaveProperty(
-      "message",
-      "Student account registered successfully.",
-    );
+    expect(response.body.message).toMatch(/confirmation link/i);
     expect(response.body.user).toHaveProperty("id");
     expect(response.body.user.email).toBe(testUserEmail);
     expect(response.body.user.role).toBe("student");
     expect(response.body.user.status).toBe("active");
+    expect(response.body.user.email_verified).toBe(false);
     // First name is trimmed before it is stored
     expect(response.body.user.first_name).toBe(testFirstName);
     // Ensure password hash is not exposed in the response
     expect(response.body.user).not.toHaveProperty("password_hash");
+
+    // A confirmation link was emailed to the new student
+    expect(sendVerificationEmail).toHaveBeenCalledWith(
+      testUserEmail,
+      testFirstName,
+      expect.stringContaining("/api/auth/verify-email?token="),
+    );
   });
 
   it("should store the first name in user_profiles, matched by email", async () => {
@@ -113,6 +128,77 @@ describe("POST /api/auth/register (US-01: Student Registration)", () => {
     expect(response.status).toBe(409);
     expect(response.body).toHaveProperty("error");
     expect(response.body.error).toContain("already exists");
+  });
+});
+
+describe("Email confirmation (US-01)", () => {
+  it("blocks login until the email is confirmed and emails a fresh link", async () => {
+    const firstLink = lastVerificationLink(testUserEmail);
+
+    const response = await request(app).post("/api/auth/login").send({
+      email: testUserEmail,
+      password: testPassword,
+    });
+
+    expect(response.status).toBe(403);
+    expect(response.body.error).toMatch(/confirm your email/i);
+    expect(response.headers["set-cookie"]).toBeUndefined();
+
+    // The new link replaces the old one
+    const newLink = lastVerificationLink(testUserEmail);
+    expect(newLink.href).not.toBe(firstLink.href);
+
+    const oldLinkRes = await request(app).get(
+      firstLink.pathname + firstLink.search,
+    );
+    expect(oldLinkRes.status).toBe(302);
+    expect(oldLinkRes.headers.location).toMatch(/\?verified=invalid$/);
+  });
+
+  it("rejects a malformed confirmation link", async () => {
+    const response = await request(app).get(
+      "/api/auth/verify-email?token=not-a-real-token",
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.location).toMatch(/\?verified=invalid$/);
+  });
+
+  it("confirms the email from the emailed link, which then stops working", async () => {
+    const link = lastVerificationLink(testUserEmail);
+
+    const response = await request(app).get(link.pathname + link.search);
+
+    expect(response.status).toBe(302);
+    expect(response.headers.location).toMatch(/\?verified=success$/);
+
+    const { rows } = await pool.query(
+      `SELECT email_verified, email_verification_token_hash
+       FROM users WHERE email = $1`,
+      [testUserEmail],
+    );
+    expect(rows[0].email_verified).toBe(true);
+    expect(rows[0].email_verification_token_hash).toBeNull();
+
+    const reuseRes = await request(app).get(link.pathname + link.search);
+    expect(reuseRes.headers.location).toMatch(/\?verified=invalid$/);
+  });
+
+  it("does not create the account if the confirmation email can't be sent", async () => {
+    const email = `test_mail_fail_${Date.now()}@lakeheadu.ca`;
+    sendVerificationEmail.mockRejectedValueOnce(new Error("SMTP down"));
+    jest.spyOn(console, "error").mockImplementationOnce(() => {});
+
+    const response = await request(app)
+      .post("/api/auth/register")
+      .send({ email, password: testPassword, first_name: testFirstName });
+
+    expect(response.status).toBe(502);
+
+    const { rows } = await pool.query("SELECT 1 FROM users WHERE email = $1", [
+      email,
+    ]);
+    expect(rows).toHaveLength(0);
   });
 });
 

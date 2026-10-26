@@ -2,6 +2,7 @@ const bcrypt = require("bcryptjs");
 const userModel = require("../models/userModel");
 
 const sessionModel = require("../models/sessionModel");
+const { sendVerificationEmail } = require("../config/mailer");
 
 const {
   COOKIE_NAME,
@@ -12,6 +13,32 @@ const {
   cookieOptions,
   clearCookieOptions,
 } = require("../config/session");
+
+// US-01: Confirmation links stay valid for 24 hours
+const VERIFICATION_DURATION_MS = 24 * 60 * 60 * 1000;
+
+// Build the link students click in their confirmation email
+function verificationLink(token) {
+  const serverUrl =
+    process.env.SERVER_URL || `http://localhost:${process.env.PORT || 5000}`;
+  return `${serverUrl}/api/auth/verify-email?token=${token}`;
+}
+
+// Where the browser lands after clicking the link, e.g. /?verified=success
+function clientRedirect(result) {
+  const clientUrl = process.env.CLIENT_ORIGIN || "http://localhost:3000";
+  return `${clientUrl}/?verified=${result}`;
+}
+
+// Create a fresh confirmation token; only its hash is stored in PostgreSQL
+function newVerificationToken() {
+  const token = newToken();
+  return {
+    token,
+    tokenHash: hashToken(token),
+    expiresAt: new Date(Date.now() + VERIFICATION_DURATION_MS),
+  };
+}
 
 async function register(req, res) {
   try {
@@ -61,20 +88,41 @@ async function register(req, res) {
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
-    // 6. Store user and their first name in the database
+    // 6. Store the unverified user, their first name and confirmation token
+    const { token, tokenHash, expiresAt } = newVerificationToken();
     const newUser = await userModel.createUser(
       cleanEmail,
       passwordHash,
       cleanFirstName,
+      tokenHash,
+      expiresAt,
     );
 
+    // 7. Email the confirmation link; undo the signup if it can't be sent
+    try {
+      await sendVerificationEmail(
+        newUser.email,
+        newUser.first_name,
+        verificationLink(token),
+      );
+    } catch (mailError) {
+      console.error("Verification email error:", mailError);
+      await userModel.deleteUser(newUser.id);
+      return res.status(502).json({
+        error:
+          "We couldn't send your confirmation email. Please try again later.",
+      });
+    }
+
     return res.status(201).json({
-      message: "Student account registered successfully.",
+      message:
+        "Account created! Check your Lakehead inbox and click the confirmation link before logging in.",
       user: {
         id: newUser.id,
         email: newUser.email,
         role: newUser.role,
         status: newUser.status,
+        email_verified: newUser.email_verified,
         first_name: newUser.first_name,
       },
     });
@@ -121,22 +169,46 @@ async function login(req, res) {
       });
     }
 
-    // 5. Generate a secure session token
+    // 5. Require a confirmed email; send a fresh link so the student isn't stuck
+    if (!user.email_verified) {
+      const { token, tokenHash, expiresAt } = newVerificationToken();
+      await userModel.setVerificationToken(user.id, tokenHash, expiresAt);
+
+      try {
+        await sendVerificationEmail(
+          user.email,
+          user.first_name,
+          verificationLink(token),
+        );
+      } catch (mailError) {
+        console.error("Verification email error:", mailError);
+        return res.status(403).json({
+          error: "Please confirm your email address before logging in.",
+        });
+      }
+
+      return res.status(403).json({
+        error:
+          "Please confirm your email address before logging in. We've sent a new confirmation link to your inbox.",
+      });
+    }
+
+    // 6. Generate a secure session token
     const token = newToken();
 
-    // 6. Encrypt the token
+    // 7. Encrypt the token
     const encryptedToken = encryptToken(token);
 
-    // 7. Calculate the session expiration time
+    // 8. Calculate the session expiration time
     const expiresAt = new Date(Date.now() + SESSION_DURATION_MS);
 
-    // 8. Save the session in PostgreSQL
+    // 9. Save the session in PostgreSQL
     await sessionModel.createSession(hashToken(token), user.id, expiresAt);
 
-    // 9. Send the encrypted session cookie to the browser
+    // 10. Send the encrypted session cookie to the browser
     res.cookie(COOKIE_NAME, encryptedToken, cookieOptions());
 
-    // 10. Return successful login response
+    // 11. Return successful login response
     return res.status(200).json({
       message: "Logged in successfully.",
       user: {
@@ -152,6 +224,27 @@ async function login(req, res) {
     return res.status(500).json({
       error: "Internal server error during login.",
     });
+  }
+}
+
+// US-01: Confirm a student's email from the link in their inbox
+async function verifyEmail(req, res) {
+  try {
+    const { token } = req.query;
+
+    // 1. Reject anything that isn't a token we could have issued
+    if (typeof token !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(token)) {
+      return res.redirect(clientRedirect("invalid"));
+    }
+
+    // 2. Mark the matching, unexpired account as verified
+    const user = await userModel.verifyEmail(hashToken(token));
+
+    // 3. Send the student back to the app with the result
+    return res.redirect(clientRedirect(user ? "success" : "invalid"));
+  } catch (error) {
+    console.error("Email verification error:", error);
+    return res.redirect(clientRedirect("error"));
   }
 }
 
@@ -180,5 +273,6 @@ async function logout(req, res) {
 module.exports = {
   register,
   login,
+  verifyEmail,
   logout,
 };
