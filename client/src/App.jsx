@@ -178,6 +178,8 @@ export default function App() {
             {/* Public Books View: browse active listings, logged in or not */}
             {currentView === "books" && (
               <ListingsView
+                user={user}
+                onOpenAuth={(mode) => setAuthModal({ isOpen: true, mode })}
                 onCreateListing={() =>
                   user
                     ? setCurrentView("create-listing")
