@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import PropTypes from "prop-types";
+import SellerContact from "./SellerContact";
 
 const PAGE_SIZE = 20;
 
@@ -109,7 +110,7 @@ ListingCard.propTypes = {
   onSelect: PropTypes.func.isRequired,
 };
 
-function ListingDetail({ listing, onBack }) {
+function ListingDetail({ listing, user, onOpenAuth, onBack }) {
   const [activePhoto, setActivePhoto] = useState(0);
 
   return (
@@ -216,6 +217,14 @@ function ListingDetail({ listing, onBack }) {
               </p>
             </div>
           )}
+
+          <div className="pt-4 border-t border-slate-200">
+            <SellerContact
+              listingId={listing.id}
+              user={user}
+              onOpenAuth={onOpenAuth}
+            />
+          </div>
         </div>
       </article>
     </div>
@@ -224,10 +233,12 @@ function ListingDetail({ listing, onBack }) {
 
 ListingDetail.propTypes = {
   listing: PropTypes.object.isRequired,
+  user: PropTypes.object,
+  onOpenAuth: PropTypes.func,
   onBack: PropTypes.func.isRequired,
 };
 
-export default function ListingsView({ onCreateListing }) {
+export default function ListingsView({ user, onOpenAuth, onCreateListing }) {
   const [listings, setListings] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -303,7 +314,12 @@ export default function ListingsView({ onCreateListing }) {
 
   if (selected) {
     return (
-      <ListingDetail listing={selected} onBack={() => setSelected(null)} />
+      <ListingDetail
+        listing={selected}
+        user={user}
+        onOpenAuth={onOpenAuth}
+        onBack={() => setSelected(null)}
+      />
     );
   }
 
@@ -412,5 +428,7 @@ export default function ListingsView({ onCreateListing }) {
 }
 
 ListingsView.propTypes = {
+  user: PropTypes.object,
+  onOpenAuth: PropTypes.func,
   onCreateListing: PropTypes.func,
 };
