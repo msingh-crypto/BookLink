@@ -10,13 +10,19 @@ const defaultTestDbUrl =
 const connectionString =
   process.env.DATABASE_URL || (isTestEnv ? defaultTestDbUrl : null);
 
+// Local databases (your own machine) don't support SSL
+const isLocalConnection =
+  !connectionString || /@(localhost|127\.0\.0\.1)(:|\/)/.test(connectionString);
+
 let poolConfig = {};
 
 if (connectionString) {
   poolConfig = {
     connectionString,
-    // Disable SSL in test environments or CI runners
-    ...(isTestEnv ? {} : { ssl: { rejectUnauthorized: false } }),
+    // SSL only for remote databases (e.g. Supabase), never local or test
+    ...(isTestEnv || isLocalConnection
+      ? {}
+      : { ssl: { rejectUnauthorized: false } }),
   };
 } else {
   poolConfig = {

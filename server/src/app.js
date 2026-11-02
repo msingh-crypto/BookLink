@@ -5,6 +5,7 @@ const swaggerSpec = require("./config/swagger");
 const healthRoutes = require("./routes/health");
 const authRoutes = require("./routes/auth");
 const listingRoutes = require("./routes/listingRoutes");
+const favouriteRoutes = require("./routes/favouriteRoutes");
 const adminRouter = require("./routes/admin");
 
 const app = express();
@@ -21,7 +22,6 @@ app.use(
 );
 app.use(express.json());
 
-// Serve interactive API Docs
 const swaggerUiOptions = {
   customCss: ".swagger-ui .topbar { display: none }",
 };
@@ -32,10 +32,10 @@ app.use(
   swaggerUi.setup(swaggerSpec, swaggerUiOptions),
 );
 
-// API Routes
 app.use("/api", healthRoutes);
 app.use("/api", authRoutes);
 app.use("/api", listingRoutes);
+app.use("/api", favouriteRoutes);
 app.use("/api/admin", adminRouter);
 
 module.exports = app;

@@ -67,16 +67,16 @@ BookPhoto.propTypes = {
   className: PropTypes.string,
 };
 
-function ListingCard({ listing, onSelect }) {
+function ListingCard({ listing, onSelect, isFavourited, onToggleFavourite }) {
   return (
-    <li>
+    <li className="relative">
       <button
         type="button"
         onClick={() => onSelect(listing)}
         className="flex flex-col w-full h-full text-left bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden hover:shadow-md hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
       >
         <BookPhoto
-          src={listing.photos[0]}
+          src={listing.photos?.[0]}
           alt={listing.title}
           className="w-full h-40"
         />
@@ -101,6 +101,27 @@ function ListingCard({ listing, onSelect }) {
           </div>
         </div>
       </button>
+
+      {onToggleFavourite && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFavourite(listing);
+          }}
+          aria-label={
+            isFavourited ? "Remove from favourites" : "Add to favourites"
+          }
+          aria-pressed={isFavourited}
+          className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-sm border transition ${
+            isFavourited
+              ? "bg-red-50 border-red-200 text-red-600 hover:bg-red-100"
+              : "bg-white/90 border-slate-200 text-slate-500 hover:text-red-500 hover:bg-white"
+          }`}
+        >
+          {isFavourited ? "♥" : "♡"}
+        </button>
+      )}
     </li>
   );
 }
@@ -108,29 +129,59 @@ function ListingCard({ listing, onSelect }) {
 ListingCard.propTypes = {
   listing: PropTypes.object.isRequired,
   onSelect: PropTypes.func.isRequired,
+  isFavourited: PropTypes.bool,
+  onToggleFavourite: PropTypes.func,
 };
 
-function ListingDetail({ listing, user, onOpenAuth, onBack }) {
+function ListingDetail({
+  listing,
+  user,
+  onOpenAuth,
+  onBack,
+  isFavourited,
+  onToggleFavourite,
+}) {
   const [activePhoto, setActivePhoto] = useState(0);
 
   return (
     <div className="max-w-3xl mx-auto">
-      <button
-        type="button"
-        onClick={onBack}
-        className="mb-4 text-sm text-blue-700 hover:underline"
-      >
-        ← Back to listings
-      </button>
+      <div className="flex items-center justify-between mb-4">
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-sm text-blue-700 hover:underline"
+        >
+          ← Back to listings
+        </button>
+
+        {onToggleFavourite && (
+          <button
+            type="button"
+            onClick={() => onToggleFavourite(listing)}
+            aria-label={
+              isFavourited ? "Remove from favourites" : "Add to favourites"
+            }
+            aria-pressed={isFavourited}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium border transition flex items-center gap-1.5 ${
+              isFavourited
+                ? "bg-red-50 border-red-200 text-red-600 hover:bg-red-100"
+                : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            <span>{isFavourited ? "♥" : "♡"}</span>
+            <span>{isFavourited ? "Saved in Favourites" : "Favourite"}</span>
+          </button>
+        )}
+      </div>
 
       <article className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
         <BookPhoto
-          src={listing.photos[activePhoto]}
+          src={listing.photos?.[activePhoto]}
           alt={listing.title}
           className="w-full h-72"
         />
 
-        {listing.photos.length > 1 && (
+        {listing.photos && listing.photos.length > 1 && (
           <div className="flex gap-2 p-3 border-b border-slate-200 overflow-x-auto">
             {listing.photos.map((url, index) => (
               <button
@@ -236,9 +287,16 @@ ListingDetail.propTypes = {
   user: PropTypes.object,
   onOpenAuth: PropTypes.func,
   onBack: PropTypes.func.isRequired,
+  isFavourited: PropTypes.bool,
+  onToggleFavourite: PropTypes.func,
 };
 
-export default function ListingsView({ user, onOpenAuth, onCreateListing }) {
+export default function ListingsView({
+  user,
+  favouritesOnly = false,
+  onOpenAuth,
+  onCreateListing,
+}) {
   const [listings, setListings] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -247,14 +305,50 @@ export default function ListingsView({ user, onOpenAuth, onCreateListing }) {
   const [selected, setSelected] = useState(null);
   const [sorting, setSorting] = useState("newest-desc");
 
+  // US-03: Search input and debounced query
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  // US-05: Track favourited listing IDs for the current user
+  const [favouriteIds, setFavouriteIds] = useState(() => new Set());
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchInput.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  const fetchFavourites = useCallback(async (signal) => {
+    const response = await fetch("/api/favourites", {
+      credentials: "include",
+      signal,
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to load favourites.");
+    }
+    return data;
+  }, []);
+
   const fetchPage = useCallback(
     async (offset, signal) => {
       const [sortBy, sortOrder] = sorting.split("-");
+      const params = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+        offset: String(offset),
+        sortBy,
+        sortOrder,
+      });
 
-      const response = await fetch(
-        `/api/listings?limit=${PAGE_SIZE}&offset=${offset}&sortBy=${sortBy}&sortOrder=${sortOrder}`,
-        { credentials: "include", signal },
-      );
+      if (debouncedSearch) {
+        params.set("search", debouncedSearch);
+      }
+
+      const response = await fetch(`/api/listings?${params.toString()}`, {
+        credentials: "include",
+        signal,
+      });
 
       const data = await response.json();
 
@@ -264,7 +358,7 @@ export default function ListingsView({ user, onOpenAuth, onCreateListing }) {
 
       return data;
     },
-    [sorting],
+    [sorting, debouncedSearch],
   );
 
   const loadFirstPage = useCallback(
@@ -272,9 +366,58 @@ export default function ListingsView({ user, onOpenAuth, onCreateListing }) {
       setLoading(true);
       setError("");
       try {
-        const data = await fetchPage(0, signal);
-        setListings(data.listings);
-        setTotal(data.total);
+        if (favouritesOnly) {
+          if (!user) {
+            setListings([]);
+            setTotal(0);
+            return;
+          }
+          const favData = await fetchFavourites(signal);
+          const allFavs = favData.listings || [];
+          setFavouriteIds(new Set(allFavs.map((item) => item.id)));
+
+          const filtered = debouncedSearch
+            ? allFavs.filter((item) => {
+                const q = debouncedSearch.toLowerCase();
+                const normQ = q.replace(/[-\s]/g, "");
+                const normCourse = (item.course_code || "")
+                  .toLowerCase()
+                  .replace(/[-\s]/g, "");
+                const normIsbn = (item.isbn || "")
+                  .toLowerCase()
+                  .replace(/[-\s]/g, "");
+                return (
+                  (item.title || "").toLowerCase().includes(q) ||
+                  (item.course_code || "").toLowerCase().includes(q) ||
+                  (normQ && normCourse.includes(normQ)) ||
+                  (normQ && normIsbn.includes(normQ))
+                );
+              })
+            : allFavs;
+
+          setListings(filtered);
+          setTotal(filtered.length);
+        } else {
+          const data = await fetchPage(0, signal);
+          setListings(data.listings);
+          setTotal(data.total);
+
+          if (user) {
+            try {
+              const favData = await fetchFavourites(signal);
+              setFavouriteIds(
+                new Set(
+                  favData.favouriteIds ||
+                    (favData.listings || []).map((item) => item.id),
+                ),
+              );
+            } catch {
+              // Ignore secondary favourites fetch errors on public browse
+            }
+          } else {
+            setFavouriteIds(new Set());
+          }
+        }
       } catch (err) {
         if (err.name !== "AbortError") {
           setError(err.message || "Unable to connect to the server.");
@@ -285,7 +428,7 @@ export default function ListingsView({ user, onOpenAuth, onCreateListing }) {
         }
       }
     },
-    [fetchPage],
+    [favouritesOnly, user, debouncedSearch, fetchFavourites, fetchPage],
   );
 
   useEffect(() => {
@@ -299,7 +442,6 @@ export default function ListingsView({ user, onOpenAuth, onCreateListing }) {
     setError("");
     try {
       const data = await fetchPage(listings.length);
-      // Skip anything already shown in case new listings shifted the page
       setListings((prev) => {
         const seen = new Set(prev.map((l) => l.id));
         return [...prev, ...data.listings.filter((l) => !seen.has(l.id))];
@@ -312,6 +454,61 @@ export default function ListingsView({ user, onOpenAuth, onCreateListing }) {
     }
   }
 
+  async function handleToggleFavourite(listing) {
+    if (!user) {
+      if (onOpenAuth) {
+        onOpenAuth("login");
+      }
+      return;
+    }
+
+    const listingId = listing.id;
+    const currentlyFavourited = favouriteIds.has(listingId);
+
+    // Optimistic UI update
+    setFavouriteIds((prev) => {
+      const next = new Set(prev);
+      if (currentlyFavourited) {
+        next.delete(listingId);
+      } else {
+        next.add(listingId);
+      }
+      return next;
+    });
+
+    if (favouritesOnly && currentlyFavourited) {
+      setListings((prev) => prev.filter((item) => item.id !== listingId));
+      setTotal((prev) => Math.max(0, prev - 1));
+    }
+
+    try {
+      const response = await fetch(`/api/favourites/${listingId}`, {
+        method: currentlyFavourited ? "DELETE" : "POST",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to update favourites.");
+      }
+    } catch (err) {
+      // Revert on failure
+      setFavouriteIds((prev) => {
+        const reverted = new Set(prev);
+        if (currentlyFavourited) {
+          reverted.add(listingId);
+        } else {
+          reverted.delete(listingId);
+        }
+        return reverted;
+      });
+      if (favouritesOnly && currentlyFavourited) {
+        void loadFirstPage();
+      }
+      setError(err.message || "Unable to update favourites.");
+    }
+  }
+
   if (selected) {
     return (
       <ListingDetail
@@ -319,42 +516,49 @@ export default function ListingsView({ user, onOpenAuth, onCreateListing }) {
         user={user}
         onOpenAuth={onOpenAuth}
         onBack={() => setSelected(null)}
+        isFavourited={favouriteIds.has(selected.id)}
+        onToggleFavourite={handleToggleFavourite}
       />
     );
   }
 
   return (
     <section className="max-w-6xl mx-auto">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">
-            Current Listings
+            {favouritesOnly ? "Saved Favourites" : "Current Listings"}
           </h2>
           {!loading && !error && (
             <p className="text-sm text-slate-500">
-              {total} {total === 1 ? "book" : "books"} for sale
+              {total} {total === 1 ? "book" : "books"}{" "}
+              {favouritesOnly ? "saved" : "for sale"}
             </p>
           )}
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <label htmlFor="listing-sort" className="text-sm text-slate-700">
-            Sort by:
-          </label>
+          {!favouritesOnly && (
+            <>
+              <label htmlFor="listing-sort" className="text-sm text-slate-700">
+                Sort by:
+              </label>
 
-          <select
-            id="listing-sort"
-            value={sorting}
-            onChange={(event) => setSorting(event.target.value)}
-            disabled={loading}
-            className="px-3 py-1.5 text-sm bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="newest-desc">Newest First</option>
-            <option value="price-asc">Price: Low to High</option>
-            <option value="price-desc">Price: High to Low</option>
-            <option value="condition-asc">Condition: Low to High</option>
-            <option value="condition-desc">Condition: High to Low</option>
-          </select>
+              <select
+                id="listing-sort"
+                value={sorting}
+                onChange={(event) => setSorting(event.target.value)}
+                disabled={loading}
+                className="px-3 py-1.5 text-sm bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="newest-desc">Newest First</option>
+                <option value="price-asc">Price: Low to High</option>
+                <option value="price-desc">Price: High to Low</option>
+                <option value="condition-asc">Condition: Low to High</option>
+                <option value="condition-desc">Condition: High to Low</option>
+              </select>
+            </>
+          )}
 
           <button
             type="button"
@@ -365,6 +569,33 @@ export default function ListingsView({ user, onOpenAuth, onCreateListing }) {
             Refresh
           </button>
         </div>
+      </div>
+
+      {/* US-03 Search Bar */}
+      <div className="mb-6 flex items-center gap-2">
+        <label htmlFor="listing-search" className="sr-only">
+          Search textbooks by title, ISBN, or course code
+        </label>
+        <input
+          id="listing-search"
+          type="search"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="Search by title, course code (e.g. COMP-3013), or ISBN..."
+          className="w-full px-4 py-2 text-sm bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        {searchInput && (
+          <button
+            type="button"
+            onClick={() => {
+              setSearchInput("");
+              setDebouncedSearch("");
+            }}
+            className="px-3 py-2 text-sm text-slate-600 bg-white border border-slate-300 rounded-md hover:bg-slate-50"
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       {error && (
@@ -383,9 +614,13 @@ export default function ListingsView({ user, onOpenAuth, onCreateListing }) {
       {!loading && !error && listings.length === 0 && (
         <div className="text-center py-12 bg-white rounded-lg border border-dashed border-slate-300">
           <p className="text-slate-600 mb-4">
-            No textbooks are listed right now.
+            {debouncedSearch
+              ? `No listings match "${debouncedSearch}".`
+              : favouritesOnly
+                ? "You haven't saved any favourite textbooks yet."
+                : "No textbooks are listed right now."}
           </p>
-          {onCreateListing && (
+          {!favouritesOnly && !debouncedSearch && onCreateListing && (
             <button
               type="button"
               onClick={onCreateListing}
@@ -405,11 +640,13 @@ export default function ListingsView({ user, onOpenAuth, onCreateListing }) {
                 key={listing.id}
                 listing={listing}
                 onSelect={setSelected}
+                isFavourited={favouriteIds.has(listing.id)}
+                onToggleFavourite={handleToggleFavourite}
               />
             ))}
           </ul>
 
-          {listings.length < total && (
+          {!favouritesOnly && listings.length < total && (
             <div className="flex justify-center mt-6">
               <button
                 type="button"
@@ -429,6 +666,7 @@ export default function ListingsView({ user, onOpenAuth, onCreateListing }) {
 
 ListingsView.propTypes = {
   user: PropTypes.object,
+  favouritesOnly: PropTypes.bool,
   onOpenAuth: PropTypes.func,
   onCreateListing: PropTypes.func,
 };

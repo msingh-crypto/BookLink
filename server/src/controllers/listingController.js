@@ -2,6 +2,7 @@ const listingModel = require("../models/listingModel");
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
+const MAX_SEARCH_LENGTH = 100;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -63,7 +64,7 @@ const parseNonNegativeInt = (value, fallback) => {
   return Number(value);
 };
 
-// GET /api/listings - browse all active listings
+// GET /api/listings - browse all active listings (with optional US-03 search)
 const handleGetListings = async (req, res) => {
   try {
     const limit = parseNonNegativeInt(req.query.limit, DEFAULT_PAGE_SIZE);
@@ -71,6 +72,12 @@ const handleGetListings = async (req, res) => {
 
     const sortBy = req.query.sortBy || "newest";
     const sortOrder = req.query.sortOrder || "desc";
+    const rawSearch =
+      req.query.search !== undefined
+        ? req.query.search
+        : req.query.q !== undefined
+          ? req.query.q
+          : "";
 
     if (limit === null || limit < 1 || limit > MAX_PAGE_SIZE) {
       return res.status(400).json({
@@ -99,12 +106,26 @@ const handleGetListings = async (req, res) => {
       });
     }
 
-    const { listings, total } = await listingModel.getActiveListings({
+    if (
+      typeof rawSearch !== "string" ||
+      rawSearch.trim().length > MAX_SEARCH_LENGTH
+    ) {
+      return res.status(400).json({
+        error: `search must be a string up to ${MAX_SEARCH_LENGTH} characters.`,
+      });
+    }
+
+    const trimmedSearch = rawSearch.trim();
+    const queryOptions = {
       limit,
       offset,
       sortBy,
       sortOrder,
-    });
+      ...(trimmedSearch ? { search: trimmedSearch } : {}),
+    };
+
+    const { listings, total } =
+      await listingModel.getActiveListings(queryOptions);
 
     return res.status(200).json({ listings, total, limit, offset });
   } catch (err) {

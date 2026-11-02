@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const fs = require("fs");
 const path = require("path");
 const { Pool } = require("pg");
@@ -20,7 +22,7 @@ async function initDb() {
     console.log("Database schema applied successfully.");
   } catch (error) {
     console.error("Failed to initialize database schema:", error);
-    process.exit(1);
+    process.exitCode = 1;
   } finally {
     await pool.end();
   }

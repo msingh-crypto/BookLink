@@ -31,7 +31,7 @@ const verifiedParam = new URLSearchParams(window.location.search).get(
 );
 
 export default function App() {
-  // Navigation view: "home" | "books" | "create-listing" | "moderation"
+  // Navigation view: "home" | "books" | "favourites" | "create-listing" | "moderation"
   const [currentView, setCurrentView] = useState("home");
 
   // Authenticated user object { id, email }
@@ -175,10 +175,11 @@ export default function App() {
               />
             )}
 
-            {/* Public Books View: browse active listings, logged in or not */}
-            {currentView === "books" && (
+            {/* Books & Favourites Views (US-03 & US-05) */}
+            {(currentView === "books" || currentView === "favourites") && (
               <ListingsView
                 user={user}
+                favouritesOnly={currentView === "favourites"}
                 onOpenAuth={(mode) => setAuthModal({ isOpen: true, mode })}
                 onCreateListing={() =>
                   user
