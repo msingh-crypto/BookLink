@@ -380,12 +380,16 @@ export default function ListingsView({
             ? allFavs.filter((item) => {
                 const q = debouncedSearch.toLowerCase();
                 const normQ = q.replace(/[-\s]/g, "");
+                const normCourse = (item.course_code || "")
+                  .toLowerCase()
+                  .replace(/[-\s]/g, "");
                 const normIsbn = (item.isbn || "")
                   .toLowerCase()
                   .replace(/[-\s]/g, "");
                 return (
                   (item.title || "").toLowerCase().includes(q) ||
                   (item.course_code || "").toLowerCase().includes(q) ||
+                  (normQ && normCourse.includes(normQ)) ||
                   (normQ && normIsbn.includes(normQ))
                 );
               })

@@ -118,7 +118,10 @@ const getActiveListings = async ({
   }
 
   const searchPattern = `%${trimmedSearch}%`;
-  const normalizedIsbnPattern = `%${trimmedSearch.replace(/[-\s]/g, "")}%`;
+  const normalizedToken = trimmedSearch.replace(/[-\s]/g, "");
+  const normalizedPattern = normalizedToken
+    ? `%${normalizedToken}%`
+    : searchPattern;
 
   const query = `
     SELECT
@@ -137,6 +140,7 @@ const getActiveListings = async ({
       AND (
         l.title ILIKE $3
         OR l.course_code ILIKE $3
+        OR REPLACE(REPLACE(COALESCE(l.course_code, ''), '-', ''), ' ', '') ILIKE $4
         OR REPLACE(REPLACE(COALESCE(l.isbn, ''), '-', ''), ' ', '') ILIKE $4
       )
     ORDER BY ${sortColumn} ${direction}, l.created_at DESC, l.id
@@ -150,13 +154,14 @@ const getActiveListings = async ({
       AND (
         l.title ILIKE $1
         OR l.course_code ILIKE $1
+        OR REPLACE(REPLACE(COALESCE(l.course_code, ''), '-', ''), ' ', '') ILIKE $2
         OR REPLACE(REPLACE(COALESCE(l.isbn, ''), '-', ''), ' ', '') ILIKE $2
       );
   `;
 
   const [listingResult, countResult] = await Promise.all([
-    db.query(query, [limit, offset, searchPattern, normalizedIsbnPattern]),
-    db.query(countQuery, [searchPattern, normalizedIsbnPattern]),
+    db.query(query, [limit, offset, searchPattern, normalizedPattern]),
+    db.query(countQuery, [searchPattern, normalizedPattern]),
   ]);
 
   return {
