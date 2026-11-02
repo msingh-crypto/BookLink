@@ -60,11 +60,13 @@ const PUBLIC_LISTING_COLUMNS = `
 `;
 
 // Return all active listings, newest first, with their photo URLs.
+// Supports US-03 search across title, course_code, and ISBN.
 const getActiveListings = async ({
   limit = 50,
   offset = 0,
   sortBy = "newest",
   sortOrder = "desc",
+  search = "",
 } = {}) => {
   const sortColumns = {
     newest: "l.created_at",
@@ -81,6 +83,42 @@ const getActiveListings = async ({
 
   const sortColumn = sortColumns[sortBy] || sortColumns.newest;
   const direction = sortOrder === "asc" ? "ASC" : "DESC";
+  const trimmedSearch = typeof search === "string" ? search.trim() : "";
+
+  if (!trimmedSearch) {
+    const query = `
+      SELECT
+        ${PUBLIC_LISTING_COLUMNS},
+        COALESCE(
+          (
+            SELECT json_agg(p.image_url ORDER BY p.created_at, p.id)
+            FROM listing_photos p
+            WHERE p.listing_id = l.id
+          ),
+          '[]'::json
+        ) AS photos
+      FROM listings l
+      LEFT JOIN categories c ON c.id = l.category_id
+      WHERE l.status = 'active'
+      ORDER BY ${sortColumn} ${direction}, l.created_at DESC, l.id
+      LIMIT $1 OFFSET $2;
+    `;
+
+    const countQuery = `SELECT COUNT(*)::int AS total FROM listings WHERE status = 'active';`;
+
+    const [listingResult, countResult] = await Promise.all([
+      db.query(query, [limit, offset]),
+      db.query(countQuery),
+    ]);
+
+    return {
+      listings: listingResult.rows,
+      total: countResult.rows[0].total,
+    };
+  }
+
+  const searchPattern = `%${trimmedSearch}%`;
+  const normalizedIsbnPattern = `%${trimmedSearch.replace(/[-\s]/g, "")}%`;
 
   const query = `
     SELECT
@@ -96,15 +134,29 @@ const getActiveListings = async ({
     FROM listings l
     LEFT JOIN categories c ON c.id = l.category_id
     WHERE l.status = 'active'
+      AND (
+        l.title ILIKE $3
+        OR l.course_code ILIKE $3
+        OR REPLACE(REPLACE(COALESCE(l.isbn, ''), '-', ''), ' ', '') ILIKE $4
+      )
     ORDER BY ${sortColumn} ${direction}, l.created_at DESC, l.id
     LIMIT $1 OFFSET $2;
   `;
 
-  const countQuery = `SELECT COUNT(*)::int AS total FROM listings WHERE status = 'active';`;
+  const countQuery = `
+    SELECT COUNT(*)::int AS total
+    FROM listings l
+    WHERE l.status = 'active'
+      AND (
+        l.title ILIKE $1
+        OR l.course_code ILIKE $1
+        OR REPLACE(REPLACE(COALESCE(l.isbn, ''), '-', ''), ' ', '') ILIKE $2
+      );
+  `;
 
   const [listingResult, countResult] = await Promise.all([
-    db.query(query, [limit, offset]),
-    db.query(countQuery),
+    db.query(query, [limit, offset, searchPattern, normalizedIsbnPattern]),
+    db.query(countQuery, [searchPattern, normalizedIsbnPattern]),
   ]);
 
   return {

@@ -39,6 +39,16 @@ export default function Navbar({
             Books
           </button>
 
+          {/* Show Favourites option if logged in (US-05) */}
+          {user && (
+            <button
+              onClick={() => setCurrentView("favourites")}
+              className={`text-sm font-medium transition-colors ${currentView === "favourites" ? "text-blue-400" : "text-slate-300 hover:text-white"}`}
+            >
+              Favourites
+            </button>
+          )}
+
           {/* Show Create Listing option if logged in */}
           {user && (
             <button
