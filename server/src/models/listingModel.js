@@ -203,9 +203,79 @@ const getSellerContactByListingId = async (listingId) => {
   return rows[0];
 };
 
+// US-07: True when a moderator removed the listing (admin removal marks the
+// listing's reports as 'action_taken'). Owners may not undo that.
+const REMOVED_BY_MODERATOR_SQL = `
+  (
+    l.status = 'removed'
+    AND EXISTS (
+      SELECT 1 FROM reports r
+      WHERE r.reported_listing_id = l.id AND r.status = 'action_taken'
+    )
+  )
+`;
+
+// US-07: Return every listing owned by the seller, in any status, newest first.
+const getListingsBySeller = async (sellerId) => {
+  const query = `
+    SELECT
+      ${PUBLIC_LISTING_COLUMNS},
+      l.updated_at,
+      ${REMOVED_BY_MODERATOR_SQL} AS removed_by_moderator,
+      COALESCE(
+        (
+          SELECT json_agg(p.image_url ORDER BY p.created_at, p.id)
+          FROM listing_photos p
+          WHERE p.listing_id = l.id
+        ),
+        '[]'::json
+      ) AS photos
+    FROM listings l
+    LEFT JOIN categories c ON c.id = l.category_id
+    WHERE l.seller_id = $1
+    ORDER BY l.created_at DESC, l.id;
+  `;
+
+  const { rows } = await db.query(query, [sellerId]);
+  return rows;
+};
+
+// US-07: Minimal lookup (any status) used to check ownership before an update.
+const getListingOwnership = async (id) => {
+  const query = `
+    SELECT
+      l.id,
+      l.seller_id,
+      l.status,
+      ${REMOVED_BY_MODERATOR_SQL} AS removed_by_moderator
+    FROM listings l
+    WHERE l.id = $1;
+  `;
+
+  const { rows } = await db.query(query, [id]);
+  return rows[0];
+};
+
+// US-07: Change a listing's status. The seller_id condition means a row is
+// only ever updated for its owner, even if the caller skipped the check.
+const updateListingStatus = async (id, sellerId, status) => {
+  const query = `
+    UPDATE listings
+    SET status = $3, updated_at = CURRENT_TIMESTAMP
+    WHERE id = $1 AND seller_id = $2
+    RETURNING id, seller_id, title, status, updated_at;
+  `;
+
+  const { rows } = await db.query(query, [id, sellerId, status]);
+  return rows[0];
+};
+
 module.exports = {
   createListing,
   getActiveListings,
   getListingById,
   getSellerContactByListingId,
+  getListingsBySeller,
+  getListingOwnership,
+  updateListingStatus,
 };

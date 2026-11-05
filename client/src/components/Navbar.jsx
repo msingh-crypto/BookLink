@@ -49,6 +49,16 @@ export default function Navbar({
             </button>
           )}
 
+          {/* Show My Listings option if logged in (US-07) */}
+          {user && (
+            <button
+              onClick={() => setCurrentView("my-listings")}
+              className={`text-sm font-medium transition-colors ${currentView === "my-listings" ? "text-blue-400" : "text-slate-300 hover:text-white"}`}
+            >
+              My Listings
+            </button>
+          )}
+
           {/* Show Create Listing option if logged in */}
           {user && (
             <button

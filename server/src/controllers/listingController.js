@@ -172,9 +172,88 @@ const handleGetListingById = async (req, res) => {
   }
 };
 
+// US-07: Statuses a seller can set on their own listing
+const LISTING_STATUSES = ["active", "sold", "removed"];
+
+// GET /api/listings/mine - every listing the logged-in seller owns (US-07)
+const handleGetMyListings = async (req, res) => {
+  try {
+    // 1. The seller is always the session user, never a client-supplied id
+    const sellerId = req.user.id;
+
+    // 2. Load the seller's listings in every status
+    const listings = await listingModel.getListingsBySeller(sellerId);
+
+    // 3. Return them with a total
+    return res.status(200).json({ listings, total: listings.length });
+  } catch (err) {
+    console.error("Error fetching seller listings:", err);
+    return res.status(500).json({ error: "Internal server error." });
+  }
+};
+
+// PATCH /api/listings/:id/status - seller changes their listing's status (US-07)
+const handleUpdateListingStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body || {};
+
+    // 1. Validate the listing id and the requested status
+    if (!UUID_PATTERN.test(id)) {
+      return res.status(404).json({ error: "Listing not found." });
+    }
+
+    if (!LISTING_STATUSES.includes(status)) {
+      return res.status(400).json({
+        error: `status must be one of: ${LISTING_STATUSES.join(", ")}.`,
+      });
+    }
+
+    // 2. Make sure the listing exists
+    const listing = await listingModel.getListingOwnership(id);
+
+    if (!listing) {
+      return res.status(404).json({ error: "Listing not found." });
+    }
+
+    // 3. Only the owner (from the session) may change it
+    if (listing.seller_id !== req.user.id) {
+      return res
+        .status(403)
+        .json({ error: "You can only manage your own listings." });
+    }
+
+    // 4. A listing taken down by a moderator stays down
+    if (listing.removed_by_moderator) {
+      return res.status(403).json({
+        error: "This listing was removed by a moderator and can't be changed.",
+      });
+    }
+
+    // 5. Update the status (the query is also scoped to the owner)
+    const updated = await listingModel.updateListingStatus(
+      id,
+      req.user.id,
+      status,
+    );
+
+    if (!updated) {
+      return res.status(404).json({ error: "Listing not found." });
+    }
+
+    // 6. Return the updated listing
+    return res.status(200).json(updated);
+  } catch (err) {
+    console.error("Error updating listing status:", err);
+    return res.status(500).json({ error: "Internal server error." });
+  }
+};
+
 module.exports = {
   handleCreateListing,
   handleGetListings,
   handleGetListingById,
   handleGetSellerContact,
+  handleGetMyListings,
+  handleUpdateListingStatus,
 };
