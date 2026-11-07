@@ -15,10 +15,10 @@ const TEST_PASSWORD = "Password123!";
 async function cleanUp() {
   await db.query(`DELETE FROM favourites WHERE user_id = $1;`, [FAV_BUYER_ID]);
   await db.query(`DELETE FROM listings WHERE id = $1;`, [FAV_LISTING_ID]);
-  await db.query(`DELETE FROM users WHERE id = ANY($1) OR email = ANY($2);`, [
-    [FAV_SELLER_ID, FAV_BUYER_ID],
-    [SELLER_EMAIL, BUYER_EMAIL],
-  ]);
+  await db.query(
+    `DELETE FROM users WHERE id IN ($1, $2) OR email IN ($3, $4);`,
+    [FAV_SELLER_ID, FAV_BUYER_ID, SELLER_EMAIL, BUYER_EMAIL],
+  );
 }
 
 describe("Favourites API (US-05)", () => {

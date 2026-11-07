@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
 import PropTypes from "prop-types";
 import SellerContact from "./SellerContact";
+import SellerRatingSummary from "./SellerRatingSummary";
+import RatingModal from "./RatingModal";
 
 const PAGE_SIZE = 20;
 
@@ -142,6 +144,8 @@ function ListingDetail({
   onToggleFavourite,
 }) {
   const [activePhoto, setActivePhoto] = useState(0);
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
+  const [ratingRefreshKey, setRatingRefreshKey] = useState(0);
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -269,6 +273,27 @@ function ListingDetail({
             </div>
           )}
 
+          {/* US-10: Seller Rating Summary & Review Action */}
+          <div className="pt-4 border-t border-slate-200 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-700">
+                Seller Reputation
+              </h3>
+              {user && user.id !== listing.seller_id && (
+                <button
+                  type="button"
+                  onClick={() => setIsRatingModalOpen(true)}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-medium underline"
+                >
+                  Rate this Seller
+                </button>
+              )}
+            </div>
+            <SellerRatingSummary
+              key={ratingRefreshKey}
+              sellerId={listing.seller_id}
+            />
+          </div>
           <div className="pt-4 border-t border-slate-200">
             <SellerContact
               listingId={listing.id}
@@ -278,6 +303,17 @@ function ListingDetail({
           </div>
         </div>
       </article>
+
+      {/* US-10: Rating Modal Popup */}
+      {isRatingModalOpen && (
+        <RatingModal
+          sellerId={listing.seller_id}
+          sellerEmail={listing.seller_email}
+          isOpen={isRatingModalOpen}
+          onClose={() => setIsRatingModalOpen(false)}
+          onRatingSubmitted={() => setRatingRefreshKey((prev) => prev + 1)}
+        />
+      )}
     </div>
   );
 }
