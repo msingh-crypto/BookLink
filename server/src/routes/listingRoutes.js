@@ -7,6 +7,8 @@ const {
   handleGetListings,
   handleGetListingById,
   handleGetSellerContact,
+  handleGetMyListings,
+  handleUpdateListingStatus,
 } = require("../controllers/listingController");
 const { uploadListingPhoto } = require("../controllers/photoController");
 
@@ -87,7 +89,7 @@ const { uploadListingPhoto } = require("../controllers/photoController");
  *           type: string
  *         status:
  *           type: string
- *           enum: [active]
+ *           enum: [active, sold, removed]
  *         created_at:
  *           type: string
  *           format: date-time
@@ -149,6 +151,43 @@ const { uploadListingPhoto } = require("../controllers/photoController");
  *         description: Server error
  */
 router.get("/listings", handleGetListings);
+
+/**
+ * @swagger
+ * /api/listings/mine:
+ *   get:
+ *     summary: List the logged-in seller's own listings in every status (US-07)
+ *     description: The seller is taken from the session cookie, never from the request.
+ *     tags: [Listings]
+ *     responses:
+ *       200:
+ *         description: The seller's listings, newest first
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 listings:
+ *                   type: array
+ *                   items:
+ *                     allOf:
+ *                       - $ref: '#/components/schemas/Listing'
+ *                       - type: object
+ *                         properties:
+ *                           updated_at:
+ *                             type: string
+ *                             format: date-time
+ *                           removed_by_moderator:
+ *                             type: boolean
+ *                 total:
+ *                   type: integer
+ *       401:
+ *         description: Unauthorized - Authentication required
+ *       500:
+ *         description: Server error
+ */
+// Registered before /listings/:id so "mine" is not treated as a listing id
+router.get("/listings/mine", requireAuth, handleGetMyListings);
 
 /**
  * @swagger
@@ -276,5 +315,48 @@ router.post(
  *         description: Server error
  */
 router.get("/listings/:id/contact", requireAuth, handleGetSellerContact);
+
+/**
+ * @swagger
+ * /api/listings/{id}/status:
+ *   patch:
+ *     summary: Change the status of one of your own listings (US-07)
+ *     description: Only the listing's owner (from the session) can change it. Listings removed by a moderator can't be changed.
+ *     tags: [Listings]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [active, sold, removed]
+ *                 example: "sold"
+ *     responses:
+ *       200:
+ *         description: Status updated
+ *       400:
+ *         description: Invalid status
+ *       401:
+ *         description: Unauthorized - Authentication required
+ *       403:
+ *         description: Not the owner, or the listing was removed by a moderator
+ *       404:
+ *         description: Listing not found
+ *       500:
+ *         description: Server error
+ */
+router.patch("/listings/:id/status", requireAuth, handleUpdateListingStatus);
 
 module.exports = router;

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import Navbar from "./Navbar";
 
@@ -45,5 +45,23 @@ describe("Navbar Component", () => {
 
     expect(screen.getByText("Nick")).toBeInTheDocument();
     expect(screen.queryByText("naduva")).not.toBeInTheDocument();
+  });
+
+  it("shows My Listings only when logged in and navigates to it (US-07)", () => {
+    const setCurrentView = vi.fn();
+    const { rerender } = render(
+      <Navbar {...mockProps} setCurrentView={setCurrentView} />,
+    );
+    expect(screen.queryByText("My Listings")).not.toBeInTheDocument();
+
+    rerender(
+      <Navbar
+        {...mockProps}
+        setCurrentView={setCurrentView}
+        user={{ id: "123", email: "student@lakeheadu.ca" }}
+      />,
+    );
+    fireEvent.click(screen.getByText("My Listings"));
+    expect(setCurrentView).toHaveBeenCalledWith("my-listings");
   });
 });

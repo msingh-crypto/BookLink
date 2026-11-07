@@ -7,6 +7,7 @@ import Register from "./components/Register";
 import Login from "./components/Login";
 import CreateListingForm from "./components/CreateListingForm";
 import ListingsView from "./components/ListingsView";
+import MyListingsView from "./components/MyListingsView";
 import ModerationDashboard from "./components/ModerationDashboard";
 
 // US-01: Banners for the result of clicking the email confirmation link,
@@ -31,7 +32,7 @@ const verifiedParam = new URLSearchParams(window.location.search).get(
 );
 
 export default function App() {
-  // Navigation view: "home" | "books" | "favourites" | "create-listing" | "moderation"
+  // Navigation view: "home" | "books" | "favourites" | "my-listings" | "create-listing" | "moderation"
   const [currentView, setCurrentView] = useState("home");
 
   // Authenticated user object { id, email }
@@ -186,6 +187,13 @@ export default function App() {
                     ? setCurrentView("create-listing")
                     : setAuthModal({ isOpen: true, mode: "login" })
                 }
+              />
+            )}
+
+            {/* Seller Listing Management (US-07) */}
+            {currentView === "my-listings" && user && (
+              <MyListingsView
+                onCreateListing={() => setCurrentView("create-listing")}
               />
             )}
 
