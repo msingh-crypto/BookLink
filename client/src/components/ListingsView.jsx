@@ -3,6 +3,7 @@ import PropTypes from "prop-types";
 import SellerContact from "./SellerContact";
 import SellerRatingSummary from "./SellerRatingSummary";
 import RatingModal from "./RatingModal";
+import ReportModal from "./ReportModal";
 
 const PAGE_SIZE = 20;
 
@@ -146,6 +147,7 @@ function ListingDetail({
   const [activePhoto, setActivePhoto] = useState(0);
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
   const [ratingRefreshKey, setRatingRefreshKey] = useState(0);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -157,6 +159,17 @@ function ListingDetail({
         >
           ← Back to listings
         </button>
+
+        {/* US-11: Report Listing Button  */}
+        {user && user.id !== listing.seller_id && (
+          <button
+            type="button"
+            onClick={() => setReportModalOpen(true)}
+            className="text-xs text-red-600 hover:text-red-800 font-medium flex items-center gap-1"
+          >
+            🚩 Report Listing
+          </button>
+        )}
 
         {onToggleFavourite && (
           <button
@@ -292,6 +305,8 @@ function ListingDetail({
             <SellerRatingSummary
               key={ratingRefreshKey}
               sellerId={listing.seller_id}
+              sellerName={listing.seller_name}
+              user={user}
             />
           </div>
           <div className="pt-4 border-t border-slate-200">
@@ -314,6 +329,15 @@ function ListingDetail({
           onRatingSubmitted={() => setRatingRefreshKey((prev) => prev + 1)}
         />
       )}
+
+      {/* US-11: Report Modal Popup */}
+      <ReportModal
+        isOpen={reportModalOpen}
+        onClose={() => setReportModalOpen(false)}
+        targetType="listing"
+        targetId={listing.id}
+        targetTitle={listing.title}
+      />
     </div>
   );
 }

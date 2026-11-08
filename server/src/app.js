@@ -40,6 +40,6 @@ app.use("/api", listingRoutes);
 app.use("/api", favouriteRoutes);
 app.use("/api/admin", adminRouter);
 app.use("/api", ratingRoutes);
-app.use("/api", reportRoutes);
+app.use("/api/reports", reportRoutes);
 
 module.exports = app;
