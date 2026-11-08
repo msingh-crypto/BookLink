@@ -165,3 +165,23 @@ CREATE TABLE reports (
     status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed', 'action_taken', 'dismissed')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE public.categories 
+  ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+
+CREATE TABLE IF NOT EXISTS public.departments (
+  id SERIAL PRIMARY KEY,
+  code VARCHAR(10) NOT NULL UNIQUE,
+  name VARCHAR(150) NOT NULL UNIQUE,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO public.departments (code, name) VALUES
+  ('COMP', 'Computer Science'),
+  ('MATH', 'Mathematics'),
+  ('ENGR', 'Engineering'),
+  ('BUSI', 'Business & Economics'),
+  ('BIOL', 'Biology'),
+  ('PSYC', 'Psychology')
+ON CONFLICT (code) DO NOTHING;
