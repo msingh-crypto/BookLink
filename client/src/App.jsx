@@ -9,6 +9,7 @@ import CreateListingForm from "./components/CreateListingForm";
 import ListingsView from "./components/ListingsView";
 import MyListingsView from "./components/MyListingsView";
 import ModerationDashboard from "./components/ModerationDashboard";
+import AdminTaxonomyDashboard from "./components/AdminTaxonomyDashboard";
 
 // US-01: Banners for the result of clicking the email confirmation link,
 // which redirects back here with ?verified=success|invalid|error
@@ -215,6 +216,12 @@ export default function App() {
               user &&
               (user.role === "admin" || user.role === "moderator") && (
                 <ModerationDashboard user={user} />
+              )}
+
+            {currentView === "admin-taxonomy" &&
+              user &&
+              user.role === "admin" && (
+                <AdminTaxonomyDashboard currentUser={user} />
               )}
           </>
         )}
