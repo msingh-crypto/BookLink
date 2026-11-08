@@ -109,7 +109,7 @@ export default function ModerationDashboard({ user }) {
             Moderation Console
           </h2>
           <p className="text-sm text-slate-500">
-            Review reported listings and take administrative action[cite: 1].
+            Review reported listings and take administrative action.
           </p>
         </div>
         <button

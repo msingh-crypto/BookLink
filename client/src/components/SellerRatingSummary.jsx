@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from "react";
 import PropTypes from "prop-types";
+import ReportModal from "./ReportModal";
 
-export default function SellerRatingSummary({ sellerId }) {
+export default function SellerRatingSummary({ sellerId, sellerName, user }) {
   const [ratingData, setRatingData] = useState({
     average_rating: 0,
     total_reviews: 0,
     reviews: [],
   });
   const [loading, setLoading] = useState(true);
+  const [reportProfileOpen, setReportProfileOpen] = useState(false);
 
   useEffect(() => {
     if (!sellerId) return;
@@ -37,14 +39,27 @@ export default function SellerRatingSummary({ sellerId }) {
   return (
     <div className="space-y-3">
       {/* Aggregated Indicator */}
-      <div className="flex items-center gap-2">
-        <span className="text-amber-400 font-bold text-lg">★</span>
-        <span className="font-bold text-slate-800 text-base">
-          {average_rating > 0 ? average_rating : "New"}
-        </span>
-        <span className="text-xs text-slate-500">
-          ({total_reviews} {total_reviews === 1 ? "review" : "reviews"})
-        </span>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-amber-400 font-bold text-lg">★</span>
+          <span className="font-bold text-slate-800 text-base">
+            {average_rating > 0 ? average_rating : "New"}
+          </span>
+          <span className="text-xs text-slate-500">
+            ({total_reviews} {total_reviews === 1 ? "review" : "reviews"})
+          </span>
+        </div>
+
+        {/* US-11: Report Seller Profile Action */}
+        {user && user.id !== sellerId && (
+          <button
+            type="button"
+            onClick={() => setReportProfileOpen(true)}
+            className="text-xs text-slate-500 hover:text-red-600 underline font-medium"
+          >
+            Report Seller
+          </button>
+        )}
       </div>
 
       {/* Review History */}
@@ -75,10 +90,21 @@ export default function SellerRatingSummary({ sellerId }) {
           ))}
         </div>
       )}
+
+      {/* US-11: Report Modal Popup */}
+      <ReportModal
+        isOpen={reportProfileOpen}
+        onClose={() => setReportProfileOpen(false)}
+        targetType="profile"
+        targetId={sellerId}
+        targetTitle={sellerName || "User Profile"}
+      />
     </div>
   );
 }
 
 SellerRatingSummary.propTypes = {
   sellerId: PropTypes.string.isRequired,
+  sellerName: PropTypes.string,
+  user: PropTypes.object,
 };

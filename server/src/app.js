@@ -8,6 +8,7 @@ const listingRoutes = require("./routes/listingRoutes");
 const favouriteRoutes = require("./routes/favouriteRoutes");
 const adminRouter = require("./routes/admin");
 const ratingRoutes = require("./routes/ratingRoutes");
+const reportRoutes = require("./routes/reportRoutes");
 
 const app = express();
 app.disable("x-powered-by");
@@ -39,5 +40,6 @@ app.use("/api", listingRoutes);
 app.use("/api", favouriteRoutes);
 app.use("/api/admin", adminRouter);
 app.use("/api", ratingRoutes);
+app.use("/api/reports", reportRoutes);
 
 module.exports = app;
