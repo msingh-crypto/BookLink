@@ -4,6 +4,7 @@ const requireAuth = require("../middleware/requireAuth");
 const requireRole = require("../middleware/requireRole");
 const adminController = require("../controllers/adminController");
 const taxonomyController = require("../controllers/taxonomyController");
+const analyticsController = require("../controllers/analyticsController");
 
 // All admin routes require authenticated session with admin or moderator role
 router.use(requireAuth);
@@ -26,6 +27,11 @@ router.post("/taxonomy/departments", taxonomyController.handleCreateDepartment);
 router.patch(
   "/taxonomy/departments/:id",
   taxonomyController.handleUpdateDepartment,
+);
+router.get(
+  "/analytics",
+  requireRole("admin"),
+  analyticsController.getAnalytics,
 );
 
 module.exports = router;
