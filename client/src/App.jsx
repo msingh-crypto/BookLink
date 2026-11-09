@@ -10,6 +10,7 @@ import ListingsView from "./components/ListingsView";
 import MyListingsView from "./components/MyListingsView";
 import ModerationDashboard from "./components/ModerationDashboard";
 import AdminTaxonomyDashboard from "./components/AdminTaxonomyDashboard";
+import AdminAnalyticsDashboard from "./components/AdminAnalyticsDashboard";
 
 // US-01: Banners for the result of clicking the email confirmation link,
 // which redirects back here with ?verified=success|invalid|error
@@ -222,6 +223,12 @@ export default function App() {
               user &&
               user.role === "admin" && (
                 <AdminTaxonomyDashboard currentUser={user} />
+              )}
+
+            {currentView === "admin-analytics" &&
+              user &&
+              user.role === "admin" && (
+                <AdminAnalyticsDashboard currentUser={user} />
               )}
           </>
         )}

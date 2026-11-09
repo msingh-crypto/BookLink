@@ -93,6 +93,20 @@ export default function Navbar({
             </button>
           )}
 
+          {/* US-14: Admin Analytics Navigation Link */}
+          {user && user.role === "admin" && (
+            <button
+              onClick={() => setCurrentView("admin-analytics")}
+              className={`text-sm font-medium transition-colors ${
+                currentView === "admin-analytics"
+                  ? "text-blue-400"
+                  : "text-slate-300 hover:text-white"
+              }`}
+            >
+              Analytics
+            </button>
+          )}
+
           {/* Dynamic Auth Section */}
           <div className="flex items-center gap-3 pl-4 border-l border-slate-700">
             {user ? (
