@@ -3,6 +3,9 @@ const listingModel = require("../models/listingModel");
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
 const MAX_SEARCH_LENGTH = 100;
+const MAX_DEPARTMENT_LENGTH = 10;
+const MAX_COURSE_CODE_LENGTH = 20;
+const VALID_CONDITIONS = ["New", "Like New", "Good", "Fair", "Poor"];
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -64,7 +67,7 @@ const parseNonNegativeInt = (value, fallback) => {
   return Number(value);
 };
 
-// GET /api/listings - browse all active listings (with optional US-03 search)
+// GET /api/listings - browse all active listings (supports US-03 search and US-04 filtering & sorting)
 const handleGetListings = async (req, res) => {
   try {
     const limit = parseNonNegativeInt(req.query.limit, DEFAULT_PAGE_SIZE);
@@ -78,6 +81,12 @@ const handleGetListings = async (req, res) => {
         : req.query.q !== undefined
           ? req.query.q
           : "";
+    const rawDepartment =
+      req.query.department !== undefined ? req.query.department : "";
+    const rawCondition =
+      req.query.condition !== undefined ? req.query.condition : "";
+    const rawCourseCode =
+      req.query.courseCode !== undefined ? req.query.courseCode : "";
 
     if (limit === null || limit < 1 || limit > MAX_PAGE_SIZE) {
       return res.status(400).json({
@@ -115,13 +124,50 @@ const handleGetListings = async (req, res) => {
       });
     }
 
+    if (
+      typeof rawDepartment !== "string" ||
+      rawDepartment.trim().length > MAX_DEPARTMENT_LENGTH
+    ) {
+      return res.status(400).json({
+        error: `department must be a string up to ${MAX_DEPARTMENT_LENGTH} characters.`,
+      });
+    }
+
+    if (typeof rawCondition !== "string") {
+      return res.status(400).json({
+        error: "Invalid condition filter.",
+      });
+    }
+
+    const trimmedCondition = rawCondition.trim();
+    if (trimmedCondition && !VALID_CONDITIONS.includes(trimmedCondition)) {
+      return res.status(400).json({
+        error: "Invalid condition filter.",
+      });
+    }
+
+    if (
+      typeof rawCourseCode !== "string" ||
+      rawCourseCode.trim().length > MAX_COURSE_CODE_LENGTH
+    ) {
+      return res.status(400).json({
+        error: `courseCode must be a string up to ${MAX_COURSE_CODE_LENGTH} characters.`,
+      });
+    }
+
     const trimmedSearch = rawSearch.trim();
+    const trimmedDepartment = rawDepartment.trim();
+    const trimmedCourseCode = rawCourseCode.trim();
+
     const queryOptions = {
       limit,
       offset,
       sortBy,
       sortOrder,
       ...(trimmedSearch ? { search: trimmedSearch } : {}),
+      ...(trimmedDepartment ? { department: trimmedDepartment } : {}),
+      ...(trimmedCondition ? { condition: trimmedCondition } : {}),
+      ...(trimmedCourseCode ? { courseCode: trimmedCourseCode } : {}),
     };
 
     const { listings, total } =

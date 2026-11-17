@@ -7,6 +7,7 @@ const TEST_SELLER_EMAIL = "test.viewer.seller@lakeheadu.ca";
 
 const insertListing = async (overrides = {}) => {
   const listing = {
+    category_id: null,
     title: "Calculus: Early Transcendentals",
     course_code: "MATH-1410",
     condition: "Good",
@@ -19,11 +20,12 @@ const insertListing = async (overrides = {}) => {
 
   const { rows } = await db.query(
     `INSERT INTO listings
-       (seller_id, title, course_code, condition, price, meetup_zone, description, status, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, CURRENT_TIMESTAMP))
+       (seller_id, category_id, title, course_code, condition, price, meetup_zone, description, status, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10, CURRENT_TIMESTAMP))
      RETURNING id;`,
     [
       TEST_SELLER_ID,
+      listing.category_id,
       listing.title,
       listing.course_code,
       listing.condition,
@@ -41,6 +43,9 @@ describe("GET /api/listings - View Current Listings", () => {
   let olderId;
   let newerId;
   let soldId;
+  let compGoodCheapId;
+  let compGoodExpensiveId;
+  let busiFairId;
 
   beforeAll(async () => {
     await db.query(
@@ -49,6 +54,18 @@ describe("GET /api/listings - View Current Listings", () => {
        ON CONFLICT (id) DO NOTHING;`,
       [TEST_SELLER_ID, TEST_SELLER_EMAIL],
     );
+
+    await db.query(
+      `INSERT INTO categories (name, code)
+       VALUES ('Computer Science', 'COMP'), ('Business Administration', 'BUSI')
+       ON CONFLICT (code) DO NOTHING;`,
+    );
+
+    const { rows: catRows } = await db.query(
+      `SELECT id, code FROM categories WHERE code IN ('COMP', 'BUSI');`,
+    );
+    const compId = catRows.find((c) => c.code === "COMP")?.id || null;
+    const busiId = catRows.find((c) => c.code === "BUSI")?.id || null;
 
     olderId = await insertListing({
       title: "Older Listing",
@@ -59,6 +76,28 @@ describe("GET /api/listings - View Current Listings", () => {
       created_at: "2026-02-01T00:00:00Z",
     });
     soldId = await insertListing({ title: "Sold Listing", status: "sold" });
+
+    compGoodCheapId = await insertListing({
+      category_id: compId,
+      title: "Algorithms Cheap",
+      course_code: "COMP-3013",
+      condition: "Good",
+      price: 35,
+    });
+    compGoodExpensiveId = await insertListing({
+      category_id: compId,
+      title: "Algorithms Expensive",
+      course_code: "COMP-3013",
+      condition: "Good",
+      price: 85,
+    });
+    busiFairId = await insertListing({
+      category_id: busiId,
+      title: "Intro Business",
+      course_code: "BUSI-1012",
+      condition: "Fair",
+      price: 50,
+    });
 
     await db.query(
       `INSERT INTO listing_photos (listing_id, image_url) VALUES ($1, $2);`,
@@ -147,5 +186,36 @@ describe("GET /api/listings - View Current Listings", () => {
   it("returns 404 for a malformed id instead of a server error", async () => {
     const res = await request(app).get("/api/listings/not-a-uuid");
     expect(res.statusCode).toEqual(404);
+  });
+
+  it("returns 400 for an invalid condition filter", async () => {
+    const res = await request(app).get("/api/listings?condition=Broken");
+    expect(res.statusCode).toEqual(400);
+    expect(res.body.error).toBe("Invalid condition filter.");
+  });
+
+  it("filters by department, condition, and courseCode together with sorting", async () => {
+    const res = await request(app).get(
+      "/api/listings?department=COMP&condition=Good&courseCode=COMP%203013&sortBy=price&sortOrder=asc",
+    );
+
+    expect(res.statusCode).toEqual(200);
+    const ids = res.body.listings.map((l) => l.id);
+    expect(ids).toContain(compGoodCheapId);
+    expect(ids).toContain(compGoodExpensiveId);
+    expect(ids).not.toContain(busiFairId);
+    expect(ids.indexOf(compGoodCheapId)).toBeLessThan(
+      ids.indexOf(compGoodExpensiveId),
+    );
+  });
+
+  it("normalizes hyphens and spaces in courseCode filter", async () => {
+    const res = await request(app).get("/api/listings?courseCode=comp%203013");
+
+    expect(res.statusCode).toEqual(200);
+    const ids = res.body.listings.map((l) => l.id);
+    expect(ids).toContain(compGoodCheapId);
+    expect(ids).toContain(compGoodExpensiveId);
+    expect(ids).not.toContain(busiFairId);
   });
 });

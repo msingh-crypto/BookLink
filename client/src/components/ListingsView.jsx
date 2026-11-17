@@ -7,6 +7,16 @@ import ReportModal from "./ReportModal";
 
 const PAGE_SIZE = 20;
 
+const DEPARTMENT_OPTIONS = [
+  { code: "COMP", label: "Computer Science (COMP)" },
+  { code: "BUSI", label: "Business Administration (BUSI)" },
+  { code: "ENGI", label: "Engineering (ENGI)" },
+  { code: "BIOL", label: "Biology (BIOL)" },
+  { code: "PSYC", label: "Psychology (PSYC)" },
+];
+
+const CONDITION_OPTIONS = ["New", "Like New", "Good", "Fair", "Poor"];
+
 const CONDITION_STYLES = {
   New: "bg-emerald-100 text-emerald-800",
   "Like New": "bg-green-100 text-green-800",
@@ -369,6 +379,12 @@ export default function ListingsView({
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
+  // US-04: Department, condition, and course-code filters
+  const [department, setDepartment] = useState("");
+  const [condition, setCondition] = useState("");
+  const [courseCodeInput, setCourseCodeInput] = useState("");
+  const [debouncedCourseCode, setDebouncedCourseCode] = useState("");
+
   // US-05: Track favourited listing IDs for the current user
   const [favouriteIds, setFavouriteIds] = useState(() => new Set());
 
@@ -378,6 +394,31 @@ export default function ListingsView({
     }, 300);
     return () => clearTimeout(timer);
   }, [searchInput]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedCourseCode(courseCodeInput.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [courseCodeInput]);
+
+  const hasActiveFilters = Boolean(
+    department ||
+    condition ||
+    courseCodeInput ||
+    searchInput ||
+    sorting !== "newest-desc",
+  );
+
+  const handleClearFilters = () => {
+    setDepartment("");
+    setCondition("");
+    setCourseCodeInput("");
+    setDebouncedCourseCode("");
+    setSearchInput("");
+    setDebouncedSearch("");
+    setSorting("newest-desc");
+  };
 
   const fetchFavourites = useCallback(async (signal) => {
     const response = await fetch("/api/favourites", {
@@ -404,6 +445,15 @@ export default function ListingsView({
       if (debouncedSearch) {
         params.set("search", debouncedSearch);
       }
+      if (department) {
+        params.set("department", department);
+      }
+      if (condition) {
+        params.set("condition", condition);
+      }
+      if (debouncedCourseCode) {
+        params.set("courseCode", debouncedCourseCode);
+      }
 
       const response = await fetch(`/api/listings?${params.toString()}`, {
         credentials: "include",
@@ -418,7 +468,7 @@ export default function ListingsView({
 
       return data;
     },
-    [sorting, debouncedSearch],
+    [sorting, debouncedSearch, department, condition, debouncedCourseCode],
   );
 
   const loadFirstPage = useCallback(
@@ -436,24 +486,50 @@ export default function ListingsView({
           const allFavs = favData.listings || [];
           setFavouriteIds(new Set(allFavs.map((item) => item.id)));
 
-          const filtered = debouncedSearch
-            ? allFavs.filter((item) => {
-                const q = debouncedSearch.toLowerCase();
-                const normQ = q.replace(/[-\s]/g, "");
-                const normCourse = (item.course_code || "")
-                  .toLowerCase()
-                  .replace(/[-\s]/g, "");
-                const normIsbn = (item.isbn || "")
-                  .toLowerCase()
-                  .replace(/[-\s]/g, "");
-                return (
-                  (item.title || "").toLowerCase().includes(q) ||
-                  (item.course_code || "").toLowerCase().includes(q) ||
-                  (normQ && normCourse.includes(normQ)) ||
-                  (normQ && normIsbn.includes(normQ))
-                );
-              })
-            : allFavs;
+          const filtered = allFavs.filter((item) => {
+            if (debouncedSearch) {
+              const q = debouncedSearch.toLowerCase();
+              const normQ = q.replace(/[-\s]/g, "");
+              const normCourse = (item.course_code || "")
+                .toLowerCase()
+                .replace(/[-\s]/g, "");
+              const normIsbn = (item.isbn || "")
+                .toLowerCase()
+                .replace(/[-\s]/g, "");
+              const matchesSearch =
+                (item.title || "").toLowerCase().includes(q) ||
+                (item.course_code || "").toLowerCase().includes(q) ||
+                (normQ && normCourse.includes(normQ)) ||
+                (normQ && normIsbn.includes(normQ));
+              if (!matchesSearch) return false;
+            }
+
+            if (
+              department &&
+              (item.category_code || "").toUpperCase() !==
+                department.toUpperCase()
+            ) {
+              return false;
+            }
+
+            if (condition && item.condition !== condition) {
+              return false;
+            }
+
+            if (debouncedCourseCode) {
+              const normFilter = debouncedCourseCode
+                .toLowerCase()
+                .replace(/[-\s]/g, "");
+              const normItemCourse = (item.course_code || "")
+                .toLowerCase()
+                .replace(/[-\s]/g, "");
+              if (!normItemCourse.includes(normFilter)) {
+                return false;
+              }
+            }
+
+            return true;
+          });
 
           setListings(filtered);
           setTotal(filtered.length);
@@ -488,7 +564,16 @@ export default function ListingsView({
         }
       }
     },
-    [favouritesOnly, user, debouncedSearch, fetchFavourites, fetchPage],
+    [
+      favouritesOnly,
+      user,
+      debouncedSearch,
+      department,
+      condition,
+      debouncedCourseCode,
+      fetchFavourites,
+      fetchPage,
+    ],
   );
 
   useEffect(() => {
@@ -632,7 +717,7 @@ export default function ListingsView({
       </div>
 
       {/* US-03 Search Bar */}
-      <div className="mb-6 flex items-center gap-2">
+      <div className="mb-3 flex items-center gap-2">
         <label htmlFor="listing-search" className="sr-only">
           Search textbooks by title, ISBN, or course code
         </label>
@@ -658,6 +743,73 @@ export default function ListingsView({
         )}
       </div>
 
+      {/* US-04 Combined Filters + Clear Filters */}
+      <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div>
+          <label htmlFor="listing-department" className="sr-only">
+            Filter by department
+          </label>
+          <select
+            id="listing-department"
+            aria-label="Filter by department"
+            value={department}
+            onChange={(e) => setDepartment(e.target.value)}
+            className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">All Departments</option>
+            {DEPARTMENT_OPTIONS.map((dept) => (
+              <option key={dept.code} value={dept.code}>
+                {dept.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label htmlFor="listing-condition" className="sr-only">
+            Filter by condition
+          </label>
+          <select
+            id="listing-condition"
+            aria-label="Filter by condition"
+            value={condition}
+            onChange={(e) => setCondition(e.target.value)}
+            className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">All Conditions</option>
+            {CONDITION_OPTIONS.map((cond) => (
+              <option key={cond} value={cond}>
+                {cond}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label htmlFor="listing-course-code" className="sr-only">
+            Filter by course code
+          </label>
+          <input
+            id="listing-course-code"
+            type="text"
+            aria-label="Filter by course code"
+            value={courseCodeInput}
+            onChange={(e) => setCourseCodeInput(e.target.value)}
+            placeholder="Course code (e.g. COMP 3013)"
+            className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={handleClearFilters}
+          disabled={!hasActiveFilters}
+          className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Clear Filters
+        </button>
+      </div>
+
       {error && (
         <div
           role="alert"
@@ -674,13 +826,22 @@ export default function ListingsView({
       {!loading && !error && listings.length === 0 && (
         <div className="text-center py-12 bg-white rounded-lg border border-dashed border-slate-300">
           <p className="text-slate-600 mb-4">
-            {debouncedSearch
-              ? `No listings match "${debouncedSearch}".`
+            {hasActiveFilters
+              ? "No listings match your current search or filters."
               : favouritesOnly
                 ? "You haven't saved any favourite textbooks yet."
                 : "No textbooks are listed right now."}
           </p>
-          {!favouritesOnly && !debouncedSearch && onCreateListing && (
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={handleClearFilters}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm"
+            >
+              Clear Filters
+            </button>
+          )}
+          {!favouritesOnly && !hasActiveFilters && onCreateListing && (
             <button
               type="button"
               onClick={onCreateListing}

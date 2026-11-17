@@ -15,13 +15,13 @@ const createListing = async (listingData) => {
   } = listingData;
 
   const query = `
-        INSERT INTO listings (
-            seller_id, category_id, title, isbn, course_code,
-            edition, condition, price, meetup_zone, description
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        RETURNING *;
-    `;
+    INSERT INTO listings (
+      seller_id, category_id, title, isbn, course_code,
+      edition, condition, price, meetup_zone, description
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    RETURNING *;
+  `;
 
   const values = [
     seller_id,
@@ -59,69 +59,100 @@ const PUBLIC_LISTING_COLUMNS = `
   c.code AS category_code
 `;
 
-// Return all active listings, newest first, with their photo URLs.
-// Supports US-03 search across title, course_code, and ISBN.
+// Return all active listings with their photo URLs.
+// Supports US-03 search and US-04 combined filtering (department, condition, courseCode) & sorting.
 const getActiveListings = async ({
   limit = 50,
   offset = 0,
   sortBy = "newest",
   sortOrder = "desc",
   search = "",
+  department = "",
+  condition = "",
+  courseCode = "",
 } = {}) => {
   const sortColumns = {
     newest: "l.created_at",
     price: "l.price",
     condition: `CASE l.condition
-    WHEN 'Poor' THEN 1
-    WHEN 'Fair' THEN 2
-    WHEN 'Good' THEN 3
-    WHEN 'Like New' THEN 4
-    WHEN 'New' THEN 5
-    ELSE 0
+      WHEN 'Poor' THEN 1
+      WHEN 'Fair' THEN 2
+      WHEN 'Good' THEN 3
+      WHEN 'Like New' THEN 4
+      WHEN 'New' THEN 5
+        ELSE 0
   END`,
   };
 
   const sortColumn = sortColumns[sortBy] || sortColumns.newest;
   const direction = sortOrder === "asc" ? "ASC" : "DESC";
+
+  const conditions = ["l.status = 'active'"];
+  const params = [];
+
   const trimmedSearch = typeof search === "string" ? search.trim() : "";
+  if (trimmedSearch) {
+    const searchPattern = `%${trimmedSearch}%`;
+    const normalizedToken = trimmedSearch.replace(/[-\s]/g, "");
+    const normalizedPattern = normalizedToken
+      ? `%${normalizedToken}%`
+      : searchPattern;
 
-  if (!trimmedSearch) {
-    const query = `
-      SELECT
-        ${PUBLIC_LISTING_COLUMNS},
-        COALESCE(
-          (
-            SELECT json_agg(p.image_url ORDER BY p.created_at, p.id)
-            FROM listing_photos p
-            WHERE p.listing_id = l.id
-          ),
-          '[]'::json
-        ) AS photos
-      FROM listings l
-      LEFT JOIN categories c ON c.id = l.category_id
-      WHERE l.status = 'active'
-      ORDER BY ${sortColumn} ${direction}, l.created_at DESC, l.id
-      LIMIT $1 OFFSET $2;
-    `;
+    params.push(searchPattern, normalizedPattern);
+    const patternIdx = params.length - 1;
+    const normalizedIdx = params.length;
 
-    const countQuery = `SELECT COUNT(*)::int AS total FROM listings WHERE status = 'active';`;
-
-    const [listingResult, countResult] = await Promise.all([
-      db.query(query, [limit, offset]),
-      db.query(countQuery),
-    ]);
-
-    return {
-      listings: listingResult.rows,
-      total: countResult.rows[0].total,
-    };
+    conditions.push(`(
+      l.title ILIKE $${patternIdx}
+      OR l.course_code ILIKE $${patternIdx}
+      OR REPLACE(REPLACE(COALESCE(l.course_code, ''), '-', ''), ' ', '') ILIKE $${normalizedIdx}
+      OR REPLACE(REPLACE(COALESCE(l.isbn, ''), '-', ''), ' ', '') ILIKE $${normalizedIdx}
+    )`);
   }
 
-  const searchPattern = `%${trimmedSearch}%`;
-  const normalizedToken = trimmedSearch.replace(/[-\s]/g, "");
-  const normalizedPattern = normalizedToken
-    ? `%${normalizedToken}%`
-    : searchPattern;
+  const trimmedDepartment =
+    typeof department === "string" ? department.trim() : "";
+  if (trimmedDepartment) {
+    params.push(trimmedDepartment);
+    const deptIdx = params.length;
+    conditions.push(`UPPER(c.code) = UPPER($${deptIdx})`);
+  }
+
+  const trimmedCondition =
+    typeof condition === "string" ? condition.trim() : "";
+  if (trimmedCondition) {
+    params.push(trimmedCondition);
+    const condIdx = params.length;
+    conditions.push(`l.condition = $${condIdx}`);
+  }
+
+  const trimmedCourseCode =
+    typeof courseCode === "string" ? courseCode.trim() : "";
+  if (trimmedCourseCode) {
+    const normalizedCourseToken = trimmedCourseCode.replace(/[-\s]/g, "");
+    const coursePattern = normalizedCourseToken
+      ? `%${normalizedCourseToken}%`
+      : `%${trimmedCourseCode}%`;
+
+    params.push(coursePattern);
+    const courseIdx = params.length;
+    conditions.push(
+      `REPLACE(REPLACE(COALESCE(l.course_code, ''), '-', ''), ' ', '') ILIKE $${courseIdx}`,
+    );
+  }
+
+  const whereClause = `WHERE ${conditions.join(" AND ")}`;
+
+  const countQuery = `
+    SELECT COUNT(*)::int AS total
+    FROM listings l
+    LEFT JOIN categories c ON c.id = l.category_id
+    ${whereClause};
+  `;
+
+  const dataParams = [...params, limit, offset];
+  const limitIdx = dataParams.length - 1;
+  const offsetIdx = dataParams.length;
 
   const query = `
     SELECT
@@ -136,32 +167,14 @@ const getActiveListings = async ({
       ) AS photos
     FROM listings l
     LEFT JOIN categories c ON c.id = l.category_id
-    WHERE l.status = 'active'
-      AND (
-        l.title ILIKE $3
-        OR l.course_code ILIKE $3
-        OR REPLACE(REPLACE(COALESCE(l.course_code, ''), '-', ''), ' ', '') ILIKE $4
-        OR REPLACE(REPLACE(COALESCE(l.isbn, ''), '-', ''), ' ', '') ILIKE $4
-      )
+    ${whereClause}
     ORDER BY ${sortColumn} ${direction}, l.created_at DESC, l.id
-    LIMIT $1 OFFSET $2;
-  `;
-
-  const countQuery = `
-    SELECT COUNT(*)::int AS total
-    FROM listings l
-    WHERE l.status = 'active'
-      AND (
-        l.title ILIKE $1
-        OR l.course_code ILIKE $1
-        OR REPLACE(REPLACE(COALESCE(l.course_code, ''), '-', ''), ' ', '') ILIKE $2
-        OR REPLACE(REPLACE(COALESCE(l.isbn, ''), '-', ''), ' ', '') ILIKE $2
-      );
+    LIMIT $${limitIdx} OFFSET $${offsetIdx};
   `;
 
   const [listingResult, countResult] = await Promise.all([
-    db.query(query, [limit, offset, searchPattern, normalizedPattern]),
-    db.query(countQuery, [searchPattern, normalizedPattern]),
+    db.query(query, dataParams),
+    db.query(countQuery, params),
   ]);
 
   return {
