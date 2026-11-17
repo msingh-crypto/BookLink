@@ -191,6 +191,91 @@ describe("ListingsView Component", () => {
       });
     }
   });
+
+  it("sends combined department, condition, and courseCode filters to the API", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        listings: [makeListing()],
+        total: 1,
+        limit: 20,
+        offset: 0,
+      }),
+    });
+
+    render(<ListingsView />);
+    await screen.findByText("Software Engineering");
+
+    fireEvent.change(screen.getByLabelText("Filter by department"), {
+      target: { value: "COMP" },
+    });
+    fireEvent.change(screen.getByLabelText("Filter by condition"), {
+      target: { value: "Good" },
+    });
+    fireEvent.change(screen.getByLabelText("Filter by course code"), {
+      target: { value: "COMP 3155" },
+    });
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "/api/listings?limit=20&offset=0&sortBy=newest&sortOrder=desc&department=COMP&condition=Good&courseCode=COMP+3155",
+        expect.objectContaining({
+          credentials: "include",
+          signal: expect.any(AbortSignal),
+        }),
+      );
+    });
+  });
+
+  it("resets all filters and sorting when 'Clear Filters' is clicked", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        listings: [makeListing()],
+        total: 1,
+        limit: 20,
+        offset: 0,
+      }),
+    });
+
+    render(<ListingsView />);
+    await screen.findByText("Software Engineering");
+
+    const deptSelect = screen.getByLabelText("Filter by department");
+    const condSelect = screen.getByLabelText("Filter by condition");
+    const courseInput = screen.getByLabelText("Filter by course code");
+    const sortSelect = screen.getByLabelText("Sort by:");
+    const clearButton = screen.getByRole("button", { name: /clear filters/i });
+
+    expect(clearButton).toBeDisabled();
+
+    fireEvent.change(deptSelect, { target: { value: "COMP" } });
+    fireEvent.change(condSelect, { target: { value: "Good" } });
+    fireEvent.change(courseInput, { target: { value: "COMP 3155" } });
+    fireEvent.change(sortSelect, { target: { value: "price-asc" } });
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "/api/listings?limit=20&offset=0&sortBy=price&sortOrder=asc&department=COMP&condition=Good&courseCode=COMP+3155",
+        expect.any(Object),
+      );
+    });
+
+    expect(clearButton).toBeEnabled();
+    fireEvent.click(clearButton);
+
+    expect(deptSelect.value).toBe("");
+    expect(condSelect.value).toBe("");
+    expect(courseInput.value).toBe("");
+    expect(sortSelect.value).toBe("newest-desc");
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenLastCalledWith(
+        "/api/listings?limit=20&offset=0&sortBy=newest&sortOrder=desc",
+        expect.any(Object),
+      );
+    });
+  });
 });
 
 describe("formatPrice", () => {
