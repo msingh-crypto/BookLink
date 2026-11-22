@@ -36,6 +36,10 @@ const getUserFavouriteListings = async (userId) => {
       l.description,
       l.status,
       l.created_at,
+      l.category_id,
+      l.department_id,
+      d.name AS department_name,
+      d.code AS department_code,
       c.name AS category_name,
       c.code AS category_code,
       f.created_at AS favourited_at,
@@ -50,6 +54,7 @@ const getUserFavouriteListings = async (userId) => {
     FROM favourites f
     INNER JOIN listings l ON l.id = f.listing_id
     LEFT JOIN categories c ON c.id = l.category_id
+    LEFT JOIN departments d ON d.id = l.department_id
     WHERE f.user_id = $1 AND l.status = 'active'
     ORDER BY f.created_at DESC;
   `;

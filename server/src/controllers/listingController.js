@@ -1,4 +1,5 @@
 const listingModel = require("../models/listingModel");
+const taxonomyModel = require("../models/taxonomyModel");
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
@@ -44,6 +45,51 @@ const handleCreateListing = async (req, res) => {
       return res
         .status(400)
         .json({ error: "Price must be a valid non-negative number." });
+    }
+
+    // US-13: Validate supplied category and department selections.
+    const taxonomyFields = [
+      {
+        field: "category_id",
+        label: "category",
+        getOptions: taxonomyModel.getAllCategories,
+      },
+      {
+        field: "department_id",
+        label: "department",
+        getOptions: taxonomyModel.getAllDepartments,
+      },
+    ];
+
+    for (const { field, label, getOptions } of taxonomyFields) {
+      const value = req.body[field];
+
+      // Keep taxonomy optional for existing API clients.
+      if (value === undefined || value === null || value === "") {
+        continue;
+      }
+
+      const validId =
+        (typeof value === "string" || typeof value === "number") &&
+        /^[1-9]\d*$/.test(String(value)) &&
+        Number.isSafeInteger(Number(value)) &&
+        Number(value) <= 2147483647;
+
+      if (!validId) {
+        return res.status(400).json({
+          error: `Invalid ${label} ID.`,
+        });
+      }
+
+      const activeOptions = await getOptions();
+
+      if (
+        !activeOptions.some((option) => Number(option.id) === Number(value))
+      ) {
+        return res.status(400).json({
+          error: `Please select an active ${label}.`,
+        });
+      }
     }
 
     const newListing = await listingModel.createListing(req.body);
@@ -155,6 +201,24 @@ const handleGetListings = async (req, res) => {
       });
     }
 
+    const rawCategory = req.query.category;
+    let category = "";
+
+    if (rawCategory !== undefined && rawCategory !== "") {
+      if (
+        typeof rawCategory !== "string" ||
+        !/^[1-9]\d*$/.test(rawCategory) ||
+        !Number.isSafeInteger(Number(rawCategory)) ||
+        Number(rawCategory) > 2147483647
+      ) {
+        return res.status(400).json({
+          error: "category must be a positive integer ID.",
+        });
+      }
+
+      category = rawCategory;
+    }
+
     const trimmedSearch = rawSearch.trim();
     const trimmedDepartment = rawDepartment.trim();
     const trimmedCourseCode = rawCourseCode.trim();
@@ -164,6 +228,7 @@ const handleGetListings = async (req, res) => {
       offset,
       sortBy,
       sortOrder,
+      ...(category ? { category } : {}),
       ...(trimmedSearch ? { search: trimmedSearch } : {}),
       ...(trimmedDepartment ? { department: trimmedDepartment } : {}),
       ...(trimmedCondition ? { condition: trimmedCondition } : {}),

@@ -3,6 +3,8 @@ import "@testing-library/jest-dom";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import ListingsView, { formatPrice } from "./ListingsView";
 
+// US-13: Keep listing responses separate from taxonomy requests.
+const listingFetch = vi.fn();
 globalThis.fetch = vi.fn();
 
 const makeListing = (overrides = {}) => ({
@@ -18,8 +20,13 @@ const makeListing = (overrides = {}) => ({
   description: "Clean, no highlights.",
   status: "active",
   created_at: "2026-10-01T12:00:00Z",
-  category_name: "Computer Science",
-  category_code: "COMP",
+  // US-13: Category and department are separate managed selections.
+  category_id: 11,
+  category_name: "Textbooks",
+  category_code: "TEXT",
+  department_id: 21,
+  department_name: "Computer Science",
+  department_code: "COMP",
   photos: [],
   ...overrides,
 });
@@ -32,10 +39,41 @@ const mockResponse = (body, ok = true) => ({
 describe("ListingsView Component", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    listingFetch.mockReset();
+
+    globalThis.fetch = vi.fn(async (url, options) => {
+      if (url === "/api/taxonomy/categories") {
+        return mockResponse([
+          { id: 11, name: "Textbooks", code: "TEXT", is_active: true },
+          { id: 12, name: "Reference Books", code: "REF", is_active: true },
+        ]);
+      }
+
+      if (url === "/api/taxonomy/departments") {
+        return mockResponse([
+          { id: 21, name: "Computer Science", code: "COMP", is_active: true },
+          { id: 22, name: "Business", code: "BUSI", is_active: true },
+        ]);
+      }
+
+      if (url.startsWith("/api/listings?")) {
+        return listingFetch(url, options);
+      }
+
+      if (/^\/api\/sellers\/[^/]+\/ratings$/.test(url)) {
+        return mockResponse({
+          average_rating: 0,
+          total_reviews: 0,
+          reviews: [],
+        });
+      }
+
+      throw new Error(`Unexpected request: ${url}`);
+    });
   });
 
   it("fetches and displays current listings", async () => {
-    globalThis.fetch.mockResolvedValueOnce(
+    listingFetch.mockResolvedValueOnce(
       mockResponse({
         listings: [
           makeListing(),
@@ -65,7 +103,7 @@ describe("ListingsView Component", () => {
   });
 
   it("shows an empty state when there are no listings", async () => {
-    globalThis.fetch.mockResolvedValueOnce(
+    listingFetch.mockResolvedValueOnce(
       mockResponse({ listings: [], total: 0, limit: 20, offset: 0 }),
     );
     const onCreate = vi.fn();
@@ -80,7 +118,7 @@ describe("ListingsView Component", () => {
   });
 
   it("shows an error message when the request fails", async () => {
-    globalThis.fetch.mockResolvedValueOnce(
+    listingFetch.mockResolvedValueOnce(
       mockResponse({ error: "Internal server error." }, false),
     );
 
@@ -92,7 +130,7 @@ describe("ListingsView Component", () => {
   });
 
   it("opens the listing detail when a card is clicked", async () => {
-    globalThis.fetch.mockResolvedValueOnce(
+    listingFetch.mockResolvedValueOnce(
       mockResponse({
         listings: [makeListing()],
         total: 1,
@@ -108,13 +146,16 @@ describe("ListingsView Component", () => {
     expect(screen.getByText("Clean, no highlights.")).toBeInTheDocument();
     expect(screen.getByText("9780134670942")).toBeInTheDocument();
     expect(screen.getByText("Computer Science")).toBeInTheDocument();
+    expect(screen.getByText("Textbooks")).toBeInTheDocument();
+    expect(screen.getByText("Category")).toBeInTheDocument();
+    expect(screen.getByText("Department")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /back to listings/i }));
     expect(screen.getByText(/1 book for sale/i)).toBeInTheDocument();
   });
 
   it("loads the next page when 'Load more' is clicked", async () => {
-    globalThis.fetch
+    listingFetch
       .mockResolvedValueOnce(
         mockResponse({
           listings: [makeListing()],
@@ -154,7 +195,7 @@ describe("ListingsView Component", () => {
   });
 
   it("sends the correct API parameters when sorting changes", async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({
+    listingFetch.mockResolvedValue({
       ok: true,
       json: async () => ({
         listings: [],
@@ -192,8 +233,8 @@ describe("ListingsView Component", () => {
     }
   });
 
-  it("sends combined department, condition, and courseCode filters to the API", async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({
+  it("sends combined category, department, condition, and courseCode filters to the API", async () => {
+    listingFetch.mockResolvedValue({
       ok: true,
       json: async () => ({
         listings: [makeListing()],
@@ -205,6 +246,15 @@ describe("ListingsView Component", () => {
 
     render(<ListingsView />);
     await screen.findByText("Software Engineering");
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Filter by category")).toBeEnabled();
+      expect(screen.getByLabelText("Filter by department")).toBeEnabled();
+    });
+
+    fireEvent.change(screen.getByLabelText("Filter by category"), {
+      target: { value: "11" },
+    });
 
     fireEvent.change(screen.getByLabelText("Filter by department"), {
       target: { value: "COMP" },
@@ -218,7 +268,7 @@ describe("ListingsView Component", () => {
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        "/api/listings?limit=20&offset=0&sortBy=newest&sortOrder=desc&department=COMP&condition=Good&courseCode=COMP+3155",
+        "/api/listings?limit=20&offset=0&sortBy=newest&sortOrder=desc&category=11&department=COMP&condition=Good&courseCode=COMP+3155",
         expect.objectContaining({
           credentials: "include",
           signal: expect.any(AbortSignal),
@@ -228,7 +278,7 @@ describe("ListingsView Component", () => {
   });
 
   it("resets all filters and sorting when 'Clear Filters' is clicked", async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({
+    listingFetch.mockResolvedValue({
       ok: true,
       json: async () => ({
         listings: [makeListing()],
@@ -241,6 +291,13 @@ describe("ListingsView Component", () => {
     render(<ListingsView />);
     await screen.findByText("Software Engineering");
 
+    await waitFor(() => {
+      expect(screen.getByLabelText("Filter by category")).toBeEnabled();
+      expect(screen.getByLabelText("Filter by department")).toBeEnabled();
+    });
+
+    const categorySelect = screen.getByLabelText("Filter by category");
+
     const deptSelect = screen.getByLabelText("Filter by department");
     const condSelect = screen.getByLabelText("Filter by condition");
     const courseInput = screen.getByLabelText("Filter by course code");
@@ -248,7 +305,7 @@ describe("ListingsView Component", () => {
     const clearButton = screen.getByRole("button", { name: /clear filters/i });
 
     expect(clearButton).toBeDisabled();
-
+    fireEvent.change(categorySelect, { target: { value: "11" } });
     fireEvent.change(deptSelect, { target: { value: "COMP" } });
     fireEvent.change(condSelect, { target: { value: "Good" } });
     fireEvent.change(courseInput, { target: { value: "COMP 3155" } });
@@ -256,13 +313,14 @@ describe("ListingsView Component", () => {
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        "/api/listings?limit=20&offset=0&sortBy=price&sortOrder=asc&department=COMP&condition=Good&courseCode=COMP+3155",
+        "/api/listings?limit=20&offset=0&sortBy=price&sortOrder=asc&category=11&department=COMP&condition=Good&courseCode=COMP+3155",
         expect.any(Object),
       );
     });
 
     expect(clearButton).toBeEnabled();
     fireEvent.click(clearButton);
+    expect(categorySelect.value).toBe("");
 
     expect(deptSelect.value).toBe("");
     expect(condSelect.value).toBe("");

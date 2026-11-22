@@ -7,14 +7,6 @@ import ReportModal from "./ReportModal";
 
 const PAGE_SIZE = 20;
 
-const DEPARTMENT_OPTIONS = [
-  { code: "COMP", label: "Computer Science (COMP)" },
-  { code: "BUSI", label: "Business Administration (BUSI)" },
-  { code: "ENGI", label: "Engineering (ENGI)" },
-  { code: "BIOL", label: "Biology (BIOL)" },
-  { code: "PSYC", label: "Psychology (PSYC)" },
-];
-
 const CONDITION_OPTIONS = ["New", "Like New", "Good", "Fair", "Poor"];
 
 const CONDITION_STYLES = {
@@ -267,9 +259,18 @@ function ListingDetail({
             )}
             {listing.category_name && (
               <div>
-                <dt className="text-slate-500">Department</dt>
+                <dt className="text-slate-500">Category</dt>
                 <dd className="font-medium text-slate-800">
                   {listing.category_name}
+                </dd>
+              </div>
+            )}
+
+            {listing.department_name && (
+              <div>
+                <dt className="text-slate-500">Department</dt>
+                <dd className="font-medium text-slate-800">
+                  {listing.department_name}
                 </dd>
               </div>
             )}
@@ -379,14 +380,99 @@ export default function ListingsView({
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
+  // US-13: Managed category filter selection, options, and loading/error states.
+  const [category, setCategory] = useState("");
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categoriesError, setCategoriesError] = useState("");
+
   // US-04: Department, condition, and course-code filters
   const [department, setDepartment] = useState("");
+  const [departments, setDepartments] = useState([]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(true);
+  const [departmentsError, setDepartmentsError] = useState("");
   const [condition, setCondition] = useState("");
   const [courseCodeInput, setCourseCodeInput] = useState("");
   const [debouncedCourseCode, setDebouncedCourseCode] = useState("");
 
   // US-05: Track favourited listing IDs for the current user
   const [favouriteIds, setFavouriteIds] = useState(() => new Set());
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadCategories() {
+      try {
+        const response = await fetch("/api/taxonomy/categories", {
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error("Unable to load categories.");
+        }
+
+        const data = await response.json();
+
+        if (!Array.isArray(data)) {
+          throw new Error("Invalid categories response.");
+        }
+
+        if (!controller.signal.aborted) {
+          setCategories(data.filter((item) => item.is_active !== false));
+        }
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setCategoriesError(err.message);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setCategoriesLoading(false);
+        }
+      }
+    }
+
+    void loadCategories();
+
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadDepartments() {
+      try {
+        const response = await fetch("/api/taxonomy/departments", {
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error("Unable to load departments.");
+        }
+
+        const data = await response.json();
+
+        if (!Array.isArray(data)) {
+          throw new Error("Invalid departments response.");
+        }
+
+        if (!controller.signal.aborted) {
+          setDepartments(data.filter((item) => item.is_active !== false));
+        }
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setDepartmentsError(err.message);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setDepartmentsLoading(false);
+        }
+      }
+    }
+
+    void loadDepartments();
+
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -403,6 +489,7 @@ export default function ListingsView({
   }, [courseCodeInput]);
 
   const hasActiveFilters = Boolean(
+    category ||
     department ||
     condition ||
     courseCodeInput ||
@@ -411,6 +498,7 @@ export default function ListingsView({
   );
 
   const handleClearFilters = () => {
+    setCategory("");
     setDepartment("");
     setCondition("");
     setCourseCodeInput("");
@@ -445,6 +533,9 @@ export default function ListingsView({
       if (debouncedSearch) {
         params.set("search", debouncedSearch);
       }
+      if (category) {
+        params.set("category", category);
+      }
       if (department) {
         params.set("department", department);
       }
@@ -468,7 +559,14 @@ export default function ListingsView({
 
       return data;
     },
-    [sorting, debouncedSearch, department, condition, debouncedCourseCode],
+    [
+      sorting,
+      debouncedSearch,
+      category,
+      department,
+      condition,
+      debouncedCourseCode,
+    ],
   );
 
   const loadFirstPage = useCallback(
@@ -504,9 +602,14 @@ export default function ListingsView({
               if (!matchesSearch) return false;
             }
 
+            // US-13: Filter saved favourites by the selected category.
+            if (category && String(item.category_id) !== category) {
+              return false;
+            }
+
             if (
               department &&
-              (item.category_code || "").toUpperCase() !==
+              (item.department_code || "").toUpperCase() !==
                 department.toUpperCase()
             ) {
               return false;
@@ -568,6 +671,7 @@ export default function ListingsView({
       favouritesOnly,
       user,
       debouncedSearch,
+      category,
       department,
       condition,
       debouncedCourseCode,
@@ -743,8 +847,39 @@ export default function ListingsView({
         )}
       </div>
 
-      {/* US-04 Combined Filters + Clear Filters */}
-      <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* US-04/US-13: Combined filters using managed categories and departments */}
+      <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div>
+          <label htmlFor="listing-category" className="sr-only">
+            Filter by category
+          </label>
+          <select
+            id="listing-category"
+            aria-label="Filter by category"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            disabled={categoriesLoading || Boolean(categoriesError)}
+            className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">All Categories</option>
+            {categories.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name} ({item.code})
+              </option>
+            ))}
+          </select>
+
+          {categoriesLoading && (
+            <p className="mt-1 text-sm text-slate-500">Loading categories...</p>
+          )}
+
+          {categoriesError && (
+            <p role="alert" className="mt-1 text-sm text-red-700">
+              {categoriesError} Reload the page to retry.
+            </p>
+          )}
+        </div>
+
         <div>
           <label htmlFor="listing-department" className="sr-only">
             Filter by department
@@ -754,15 +889,28 @@ export default function ListingsView({
             aria-label="Filter by department"
             value={department}
             onChange={(e) => setDepartment(e.target.value)}
+            disabled={departmentsLoading || Boolean(departmentsError)}
             className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">All Departments</option>
-            {DEPARTMENT_OPTIONS.map((dept) => (
-              <option key={dept.code} value={dept.code}>
-                {dept.label}
+            {departments.map((dept) => (
+              <option key={dept.id} value={dept.code}>
+                {dept.name} ({dept.code})
               </option>
             ))}
           </select>
+
+          {departmentsLoading && (
+            <p className="mt-1 text-sm text-slate-500">
+              Loading departments...
+            </p>
+          )}
+
+          {departmentsError && (
+            <p role="alert" className="mt-1 text-sm text-red-700">
+              {departmentsError} Reload the page to retry.
+            </p>
+          )}
         </div>
 
         <div>

@@ -8,6 +8,7 @@ const TEST_SELLER_EMAIL = "test.viewer.seller@lakeheadu.ca";
 const insertListing = async (overrides = {}) => {
   const listing = {
     category_id: null,
+    department_id: null,
     title: "Calculus: Early Transcendentals",
     course_code: "MATH-1410",
     condition: "Good",
@@ -20,8 +21,8 @@ const insertListing = async (overrides = {}) => {
 
   const { rows } = await db.query(
     `INSERT INTO listings
-       (seller_id, category_id, title, course_code, condition, price, meetup_zone, description, status, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10, CURRENT_TIMESTAMP))
+       (seller_id, category_id, title, course_code, condition, price, meetup_zone, description, status, created_at, department_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10, CURRENT_TIMESTAMP), $11)
      RETURNING id;`,
     [
       TEST_SELLER_ID,
@@ -34,6 +35,7 @@ const insertListing = async (overrides = {}) => {
       listing.description,
       listing.status,
       listing.created_at || null,
+      listing.department_id,
     ],
   );
   return rows[0].id;
@@ -67,6 +69,29 @@ describe("GET /api/listings - View Current Listings", () => {
     const compId = catRows.find((c) => c.code === "COMP")?.id || null;
     const busiId = catRows.find((c) => c.code === "BUSI")?.id || null;
 
+    // US-13: Department filters use department IDs independently of categories.
+    await db.query(`
+      INSERT INTO departments (code, name)
+      VALUES
+        ('COMP', 'Computer Science'),
+        ('BUSI', 'Business & Economics')
+      ON CONFLICT (code) DO NOTHING;
+    `);
+
+    const { rows: departmentRows } = await db.query(`
+      SELECT id, code
+      FROM departments
+      WHERE code IN ('COMP', 'BUSI');
+    `);
+
+    const compDepartmentId = departmentRows.find(
+      (department) => department.code === "COMP",
+    ).id;
+
+    const busiDepartmentId = departmentRows.find(
+      (department) => department.code === "BUSI",
+    ).id;
+
     olderId = await insertListing({
       title: "Older Listing",
       created_at: "2026-01-01T00:00:00Z",
@@ -79,6 +104,7 @@ describe("GET /api/listings - View Current Listings", () => {
 
     compGoodCheapId = await insertListing({
       category_id: compId,
+      department_id: compDepartmentId,
       title: "Algorithms Cheap",
       course_code: "COMP-3013",
       condition: "Good",
@@ -86,6 +112,7 @@ describe("GET /api/listings - View Current Listings", () => {
     });
     compGoodExpensiveId = await insertListing({
       category_id: compId,
+      department_id: compDepartmentId,
       title: "Algorithms Expensive",
       course_code: "COMP-3013",
       condition: "Good",
@@ -93,6 +120,7 @@ describe("GET /api/listings - View Current Listings", () => {
     });
     busiFairId = await insertListing({
       category_id: busiId,
+      department_id: busiDepartmentId,
       title: "Intro Business",
       course_code: "BUSI-1012",
       condition: "Fair",
@@ -217,5 +245,62 @@ describe("GET /api/listings - View Current Listings", () => {
     expect(ids).toContain(compGoodCheapId);
     expect(ids).toContain(compGoodExpensiveId);
     expect(ids).not.toContain(busiFairId);
+  });
+  // US-13: Reject malformed category filters.
+  it("returns 400 for an invalid category filter", async () => {
+    const res = await request(app).get("/api/listings?category=abc");
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toBe("category must be a positive integer ID.");
+  });
+
+  // US-13: Category combines with department and other active filters.
+  it("combines category, department, condition, and course filters", async () => {
+    const { rows } = await db.query(
+      "SELECT category_id FROM listings WHERE id = $1;",
+      [compGoodCheapId],
+    );
+    const categoryId = rows[0].category_id;
+
+    const res = await request(app).get("/api/listings").query({
+      category: categoryId,
+      department: "COMP",
+      condition: "Good",
+      courseCode: "COMP 3013",
+      sortBy: "price",
+      sortOrder: "asc",
+      limit: 100,
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const ids = res.body.listings.map((listing) => listing.id);
+    expect(ids).toContain(compGoodCheapId);
+    expect(ids).toContain(compGoodExpensiveId);
+    expect(ids).not.toContain(busiFairId);
+    expect(ids.indexOf(compGoodCheapId)).toBeLessThan(
+      ids.indexOf(compGoodExpensiveId),
+    );
+
+    for (const listing of res.body.listings) {
+      expect(listing.category_id).toBe(categoryId);
+      expect(listing.department_code).toBe("COMP");
+      expect(listing.condition).toBe("Good");
+    }
+
+    // The same category with a different department must exclude these books.
+    const differentDepartment = await request(app).get("/api/listings").query({
+      category: categoryId,
+      department: "BUSI",
+      limit: 100,
+    });
+
+    expect(differentDepartment.statusCode).toBe(200);
+
+    const otherIds = differentDepartment.body.listings.map(
+      (listing) => listing.id,
+    );
+    expect(otherIds).not.toContain(compGoodCheapId);
+    expect(otherIds).not.toContain(compGoodExpensiveId);
   });
 });

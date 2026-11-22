@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import PropTypes from "prop-types";
 
 const CAMPUS_MEETUP_ZONES = [
@@ -13,6 +13,8 @@ const BOOK_CONDITIONS = ["New", "Like New", "Good", "Fair", "Poor"];
 
 const CreateListingForm = ({ sellerId, onSuccess }) => {
   const [formData, setFormData] = useState({
+    category_id: "",
+    department_id: "",
     title: "",
     isbn: "",
     course_code: "",
@@ -26,6 +28,56 @@ const CreateListingForm = ({ sellerId, onSuccess }) => {
   const [photo, setPhoto] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [categories, setCategories] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [taxonomyLoading, setTaxonomyLoading] = useState(true);
+  const [taxonomyError, setTaxonomyError] = useState("");
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadTaxonomy() {
+      try {
+        const results = await Promise.all(
+          ["categories", "departments"].map(async (type) => {
+            const response = await fetch(`/api/taxonomy/${type}`, {
+              signal: controller.signal,
+            });
+
+            if (!response.ok) {
+              throw new Error("Unable to load categories and departments.");
+            }
+
+            const data = await response.json();
+
+            if (!Array.isArray(data)) {
+              throw new Error("Invalid taxonomy response.");
+            }
+
+            return data.filter((item) => item.is_active !== false);
+          }),
+        );
+
+        if (!controller.signal.aborted) {
+          setCategories(results[0]);
+          setDepartments(results[1]);
+        }
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setTaxonomyError(err.message);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setTaxonomyLoading(false);
+        }
+      }
+    }
+
+    void loadTaxonomy();
+
+    return () => controller.abort();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -116,6 +168,62 @@ const CreateListingForm = ({ sellerId, onSuccess }) => {
           {errorMessage}
         </div>
       )}
+
+      {taxonomyLoading && (
+        <p className="text-sm text-slate-500">
+          Loading categories and departments...
+        </p>
+      )}
+
+      {taxonomyError && (
+        <p role="alert" className="text-sm text-red-700">
+          {taxonomyError} Close and reopen this form to retry.
+        </p>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="category_id" className={labelClasses}>
+            Category
+          </label>
+          <select
+            id="category_id"
+            name="category_id"
+            className={inputClasses}
+            value={formData.category_id}
+            onChange={handleChange}
+            disabled={taxonomyLoading || Boolean(taxonomyError)}
+          >
+            <option value="">Select Category</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name} ({category.code})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label htmlFor="department_id" className={labelClasses}>
+            Department
+          </label>
+          <select
+            id="department_id"
+            name="department_id"
+            className={inputClasses}
+            value={formData.department_id}
+            onChange={handleChange}
+            disabled={taxonomyLoading || Boolean(taxonomyError)}
+          >
+            <option value="">Select Department</option>
+            {departments.map((department) => (
+              <option key={department.id} value={department.id}>
+                {department.name} ({department.code})
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
 
       <div>
         <label htmlFor="title" className={labelClasses}>
