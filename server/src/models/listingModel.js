@@ -4,6 +4,7 @@ const createListing = async (listingData) => {
   const {
     seller_id,
     category_id,
+    department_id,
     title,
     isbn,
     course_code,
@@ -17,9 +18,9 @@ const createListing = async (listingData) => {
   const query = `
     INSERT INTO listings (
       seller_id, category_id, title, isbn, course_code,
-      edition, condition, price, meetup_zone, description
+      edition, condition, price, meetup_zone, description, department_id
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
     RETURNING *;
   `;
 
@@ -34,6 +35,7 @@ const createListing = async (listingData) => {
     price,
     meetup_zone,
     description,
+    department_id || null,
   ];
 
   const { rows } = await db.query(query, values);
@@ -55,6 +57,10 @@ const PUBLIC_LISTING_COLUMNS = `
   l.description,
   l.status,
   l.created_at,
+  l.category_id,
+  l.department_id,
+  d.name AS department_name,
+  d.code AS department_code,
   c.name AS category_name,
   c.code AS category_code
 `;
@@ -68,6 +74,7 @@ const getActiveListings = async ({
   sortOrder = "desc",
   search = "",
   department = "",
+  category = "",
   condition = "",
   courseCode = "",
 } = {}) => {
@@ -115,7 +122,12 @@ const getActiveListings = async ({
   if (trimmedDepartment) {
     params.push(trimmedDepartment);
     const deptIdx = params.length;
-    conditions.push(`UPPER(c.code) = UPPER($${deptIdx})`);
+    conditions.push(`UPPER(d.code) = UPPER($${deptIdx})`);
+  }
+
+  if (category) {
+    params.push(category);
+    conditions.push(`l.category_id = $${params.length}`);
   }
 
   const trimmedCondition =
@@ -147,6 +159,7 @@ const getActiveListings = async ({
     SELECT COUNT(*)::int AS total
     FROM listings l
     LEFT JOIN categories c ON c.id = l.category_id
+    LEFT JOIN departments d ON d.id = l.department_id
     ${whereClause};
   `;
 
@@ -167,6 +180,7 @@ const getActiveListings = async ({
       ) AS photos
     FROM listings l
     LEFT JOIN categories c ON c.id = l.category_id
+    LEFT JOIN departments d ON d.id = l.department_id
     ${whereClause}
     ORDER BY ${sortColumn} ${direction}, l.created_at DESC, l.id
     LIMIT $${limitIdx} OFFSET $${offsetIdx};
@@ -198,6 +212,7 @@ const getListingById = async (id) => {
       ) AS photos
     FROM listings l
     LEFT JOIN categories c ON c.id = l.category_id
+    LEFT JOIN departments d ON d.id = l.department_id
     WHERE l.id = $1 AND l.status = 'active';
   `;
 
@@ -245,6 +260,7 @@ const getListingsBySeller = async (sellerId) => {
       ) AS photos
     FROM listings l
     LEFT JOIN categories c ON c.id = l.category_id
+    LEFT JOIN departments d ON d.id = l.department_id
     WHERE l.seller_id = $1
     ORDER BY l.created_at DESC, l.id;
   `;

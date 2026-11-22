@@ -68,4 +68,32 @@ describe("POST /api/listings - Create Textbook Listing", () => {
       expect(res.body.error).toBe("Price must be a valid non-negative number.");
     },
   );
+
+  // US-13: Reject malformed category and department selections.
+  it.each([
+    ["category_id", "abc"],
+    ["category_id", -1],
+    ["category_id", 1.5],
+    ["department_id", "abc"],
+    ["department_id", -1],
+    ["department_id", 1.5],
+  ])("rejects invalid %s value %j", async (field, value) => {
+    const res = await request(app)
+      .post("/api/listings")
+      .send({
+        seller_id: LISTING_SUITE_SELLER_ID,
+        title: "Taxonomy Validation Test",
+        course_code: "COMP-1411",
+        condition: "Good",
+        price: 45,
+        meetup_zone: "Agora",
+        description: "Testing taxonomy validation.",
+        [field]: value,
+      });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toBe(
+      `Invalid ${field === "category_id" ? "category" : "department"} ID.`,
+    );
+  });
 });

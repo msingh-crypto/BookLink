@@ -185,3 +185,11 @@ INSERT INTO public.departments (code, name) VALUES
   ('BIOL', 'Biology'),
   ('PSYC', 'Psychology')
 ON CONFLICT (code) DO NOTHING;
+
+-- US-13: Link listings to managed departments.
+ALTER TABLE public.listings
+ADD COLUMN IF NOT EXISTS department_id INTEGER
+REFERENCES public.departments(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_listings_department_id
+ON public.listings(department_id);

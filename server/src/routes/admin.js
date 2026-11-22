@@ -18,6 +18,8 @@ router.patch(
   requireRole("admin"),
   taxonomyController.handlePromoteUser,
 );
+// Only administrators can change categories and departments.
+router.use("/taxonomy", requireRole("admin"));
 router.post("/taxonomy/categories", taxonomyController.handleCreateCategory);
 router.patch(
   "/taxonomy/categories/:id",

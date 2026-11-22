@@ -9,7 +9,7 @@ describe("US-13: Manage Roles, Permissions and Taxonomy Integration Tests", () =
     // 1. Ensure admin user exists
     await db.query(`
       INSERT INTO users (email, password_hash, role, status)
-      VALUES ('admin.test@lakeheadu.ca', 'hash', 'admin', 'active')
+      VALUES ('us13.taxonomy.test.admin@lakeheadu.ca', 'hash', 'admin', 'active')
       ON CONFLICT (email) DO UPDATE SET role = 'admin';
     `);
 
@@ -24,7 +24,7 @@ describe("US-13: Manage Roles, Permissions and Taxonomy Integration Tests", () =
 
   afterAll(async () => {
     await db.query(
-      `DELETE FROM users WHERE email IN ('admin.test@lakeheadu.ca', 'student.target@lakeheadu.ca')`,
+      `DELETE FROM users WHERE email IN ('us13.taxonomy.test.admin@lakeheadu.ca', 'student.target@lakeheadu.ca')`,
     );
     if (db.pool) await db.pool.end();
   });
