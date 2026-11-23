@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import PropTypes from "prop-types";
 import SellerContact from "./SellerContact";
+import MessageSeller from "./MessageSeller";
 import SellerRatingSummary from "./SellerRatingSummary";
 import RatingModal from "./RatingModal";
 import ReportModal from "./ReportModal";
@@ -145,6 +146,7 @@ function ListingDetail({
   onBack,
   isFavourited,
   onToggleFavourite,
+  onOpenMessages,
 }) {
   const [activePhoto, setActivePhoto] = useState(0);
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
@@ -326,6 +328,13 @@ function ListingDetail({
               user={user}
               onOpenAuth={onOpenAuth}
             />
+            {/* US-09: In-app message to the seller */}
+            <MessageSeller
+              listing={listing}
+              user={user}
+              onOpenAuth={onOpenAuth}
+              onOpenConversation={onOpenMessages}
+            />
           </div>
         </div>
       </article>
@@ -360,6 +369,7 @@ ListingDetail.propTypes = {
   onBack: PropTypes.func.isRequired,
   isFavourited: PropTypes.bool,
   onToggleFavourite: PropTypes.func,
+  onOpenMessages: PropTypes.func,
 };
 
 export default function ListingsView({
@@ -367,6 +377,7 @@ export default function ListingsView({
   favouritesOnly = false,
   onOpenAuth,
   onCreateListing,
+  onOpenMessages,
 }) {
   const [listings, setListings] = useState([]);
   const [total, setTotal] = useState(0);
@@ -767,6 +778,7 @@ export default function ListingsView({
         onBack={() => setSelected(null)}
         isFavourited={favouriteIds.has(selected.id)}
         onToggleFavourite={handleToggleFavourite}
+        onOpenMessages={onOpenMessages}
       />
     );
   }
@@ -1038,4 +1050,5 @@ ListingsView.propTypes = {
   favouritesOnly: PropTypes.bool,
   onOpenAuth: PropTypes.func,
   onCreateListing: PropTypes.func,
+  onOpenMessages: PropTypes.func,
 };

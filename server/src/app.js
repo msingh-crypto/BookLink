@@ -10,6 +10,7 @@ const adminRouter = require("./routes/admin");
 const ratingRoutes = require("./routes/ratingRoutes");
 const reportRoutes = require("./routes/reportRoutes");
 const taxonomyRouter = require("./routes/taxonomy");
+const messageRoutes = require("./routes/messageRoutes");
 
 const app = express();
 app.disable("x-powered-by");
@@ -43,5 +44,6 @@ app.use("/api/admin", adminRouter);
 app.use("/api", ratingRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/taxonomy", taxonomyRouter);
+app.use("/api", messageRoutes);
 
 module.exports = app;

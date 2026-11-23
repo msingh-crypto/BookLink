@@ -7,6 +7,7 @@ export default function Navbar({
   onLogout,
   currentView,
   setCurrentView,
+  unreadMessages = 0,
 }) {
   return (
     <header className="bg-slate-900 text-white shadow-md sticky top-0 z-40">
@@ -56,6 +57,26 @@ export default function Navbar({
               className={`text-sm font-medium transition-colors ${currentView === "my-listings" ? "text-blue-400" : "text-slate-300 hover:text-white"}`}
             >
               My Listings
+            </button>
+          )}
+
+          {/* Show Messages with an unread badge if logged in (US-09) */}
+          {user && (
+            <button
+              onClick={() => setCurrentView("messages")}
+              aria-label={
+                unreadMessages > 0
+                  ? `Messages, ${unreadMessages} unread`
+                  : "Messages"
+              }
+              className={`relative text-sm font-medium transition-colors ${currentView === "messages" ? "text-blue-400" : "text-slate-300 hover:text-white"}`}
+            >
+              Messages
+              {unreadMessages > 0 && (
+                <span className="absolute -top-2 -right-4 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  {unreadMessages > 99 ? "99+" : unreadMessages}
+                </span>
+              )}
             </button>
           )}
 
@@ -159,4 +180,5 @@ Navbar.propTypes = {
   onLogout: PropTypes.func.isRequired,
   currentView: PropTypes.string.isRequired,
   setCurrentView: PropTypes.func.isRequired,
+  unreadMessages: PropTypes.number,
 };
