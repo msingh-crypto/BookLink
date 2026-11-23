@@ -53,6 +53,47 @@ async function sendVerificationEmail(to, firstName, link) {
   });
 }
 
+// US-09: Tell a student they have a new BookLink message. Reply-To is the
+// sender's Lakehead address, so answering the email reaches them directly.
+async function sendNewMessageEmail({
+  to,
+  recipientName,
+  senderName,
+  senderEmail,
+  listingTitle,
+  body,
+  inboxUrl,
+}) {
+  const greeting = recipientName ? `Hi ${recipientName},` : "Hi,";
+  const safe = {
+    greeting: escapeHtml(greeting),
+    sender: escapeHtml(senderName),
+    senderEmail: escapeHtml(senderEmail),
+    title: escapeHtml(listingTitle),
+    body: escapeHtml(body).replace(/\n/g, "<br>"),
+  };
+
+  await getTransporter().sendMail({
+    from: process.env.MAIL_FROM || process.env.SMTP_USER,
+    to,
+    replyTo: senderEmail,
+    subject: `New message about "${listingTitle}" on BookLink`,
+    text: `${greeting}\n\n${senderName} (${senderEmail}) sent you a message about "${listingTitle}":\n\n${body}\n\nReply on BookLink: ${inboxUrl}\nOr reply to this email to write to ${senderName} at their Lakehead address.`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #1e293b;">
+        <p>${safe.greeting}</p>
+        <p><strong>${safe.sender}</strong> (${safe.senderEmail}) sent you a message about <strong>${safe.title}</strong>:</p>
+        <blockquote style="margin: 16px 0; padding: 12px 16px; background: #f1f5f9; border-left: 4px solid #2563eb; border-radius: 4px;">${safe.body}</blockquote>
+        <p style="margin: 24px 0;">
+          <a href="${inboxUrl}" style="background: #2563eb; color: #ffffff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">Reply on BookLink</a>
+        </p>
+        <p style="font-size: 13px; color: #64748b;">Or reply to this email to write to ${safe.sender} at their Lakehead address.</p>
+      </div>
+    `,
+  });
+}
+
 module.exports = {
   sendVerificationEmail,
+  sendNewMessageEmail,
 };

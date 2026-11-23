@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 import Navbar from "./components/Navbar";
 import LandingHero from "./components/LandingHero";
@@ -11,6 +11,7 @@ import MyListingsView from "./components/MyListingsView";
 import ModerationDashboard from "./components/ModerationDashboard";
 import AdminTaxonomyDashboard from "./components/AdminTaxonomyDashboard";
 import AdminAnalyticsDashboard from "./components/AdminAnalyticsDashboard";
+import MessagesView from "./components/MessagesView";
 
 // US-01: Banners for the result of clicking the email confirmation link,
 // which redirects back here with ?verified=success|invalid|error
@@ -29,13 +30,24 @@ const VERIFY_NOTICES = {
   },
 };
 
-const verifiedParam = new URLSearchParams(window.location.search).get(
-  "verified",
-);
+const searchParams = new URLSearchParams(window.location.search);
+const verifiedParam = searchParams.get("verified");
+
+// US-09: Message notification emails link to /?view=messages
+const openMessagesParam = searchParams.get("view") === "messages";
+
+const UNREAD_POLL_MS = 30000;
 
 export default function App() {
-  // Navigation view: "home" | "books" | "favourites" | "my-listings" | "create-listing" | "moderation"
-  const [currentView, setCurrentView] = useState("home");
+  // Navigation view: "home" | "books" | "favourites" | "my-listings" | "messages" | "create-listing" | "moderation"
+  const [currentView, setCurrentView] = useState(
+    openMessagesParam ? "messages" : "home",
+  );
+
+  // US-09: Unread message count for the navbar, and the conversation to
+  // open when arriving from a listing's "View conversation" link
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [messageTarget, setMessageTarget] = useState(null);
 
   // Authenticated user object { id, email }
   const [user, setUser] = useState(null);
@@ -60,7 +72,7 @@ export default function App() {
 
   // Remove ?verified=... from the address bar so a refresh doesn't repeat it
   useEffect(() => {
-    if (verifiedParam) {
+    if (verifiedParam || openMessagesParam) {
       window.history.replaceState(null, "", window.location.pathname);
     }
   }, []);
@@ -98,6 +110,43 @@ export default function App() {
     return () => controller.abort();
   }, []);
 
+  // US-09: Refresh the unread badge
+  const refreshUnreadMessages = useCallback(async () => {
+    try {
+      const response = await fetch("/api/messages/unread-count", {
+        credentials: "include",
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUnreadMessages(data.count || 0);
+      }
+    } catch {
+      // The badge is a convenience; ignore network errors
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setUnreadMessages(0);
+      return undefined;
+    }
+    void refreshUnreadMessages();
+    const timer = setInterval(refreshUnreadMessages, UNREAD_POLL_MS);
+    return () => clearInterval(timer);
+  }, [user, currentView, refreshUnreadMessages]);
+
+  // Arriving from an email link while logged out: ask them to log in first
+  useEffect(() => {
+    if (!checkingSession && !user && currentView === "messages") {
+      setAuthModal({ isOpen: true, mode: "login" });
+    }
+  }, [checkingSession, user, currentView]);
+
+  function openConversation(listingId, otherUserId) {
+    setMessageTarget({ listingId, otherUserId });
+    setCurrentView("messages");
+  }
+
   // Handle successful user login
   function handleLogin(loggedInUser) {
     setUser(loggedInUser);
@@ -127,6 +176,7 @@ export default function App() {
       }
 
       setUser(null);
+      setMessageTarget(null);
       setCurrentView("home");
     } catch (err) {
       setError(err.message);
@@ -142,6 +192,7 @@ export default function App() {
         setCurrentView={setCurrentView}
         onOpenAuth={(mode) => setAuthModal({ isOpen: true, mode })}
         onLogout={handleLogout}
+        unreadMessages={unreadMessages}
       />
 
       {/* Main Content View Area */}
@@ -189,6 +240,21 @@ export default function App() {
                     ? setCurrentView("create-listing")
                     : setAuthModal({ isOpen: true, mode: "login" })
                 }
+                onOpenMessages={openConversation}
+              />
+            )}
+
+            {/* In-app Messages (US-09) */}
+            {currentView === "messages" && user && (
+              <MessagesView
+                key={
+                  messageTarget
+                    ? `${messageTarget.listingId}:${messageTarget.otherUserId}`
+                    : "inbox"
+                }
+                user={user}
+                initialConversation={messageTarget}
+                onUnreadChange={refreshUnreadMessages}
               />
             )}
 

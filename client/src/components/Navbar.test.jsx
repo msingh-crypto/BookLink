@@ -64,4 +64,26 @@ describe("Navbar Component", () => {
     fireEvent.click(screen.getByText("My Listings"));
     expect(setCurrentView).toHaveBeenCalledWith("my-listings");
   });
+
+  it("shows Messages with an unread badge when logged in (US-09)", () => {
+    const setCurrentView = vi.fn();
+    render(
+      <Navbar
+        {...mockProps}
+        setCurrentView={setCurrentView}
+        user={{ id: "123", email: "student@lakeheadu.ca" }}
+        unreadMessages={3}
+      />,
+    );
+
+    const link = screen.getByRole("button", { name: "Messages, 3 unread" });
+    expect(link).toHaveTextContent("3");
+    fireEvent.click(link);
+    expect(setCurrentView).toHaveBeenCalledWith("messages");
+  });
+
+  it("hides Messages when logged out (US-09)", () => {
+    render(<Navbar {...mockProps} />);
+    expect(screen.queryByText("Messages")).not.toBeInTheDocument();
+  });
 });
